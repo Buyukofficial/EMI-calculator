@@ -27,7 +27,7 @@ export const CoreInputs: React.FC<CoreInputsProps> = ({
 }) => {
   // Handle Property Price Change
   const handlePriceChange = (val: number) => {
-    const validPrice = Math.max(100000, Math.min(val, 100000000));
+    const validPrice = isNaN(val) ? 0 : Math.max(0, val);
     // Recalculate down payment amount preserving percentage
     const newDownAmount = Math.round((validPrice * inputs.downPaymentPercent) / 100);
     onChange({
@@ -38,7 +38,7 @@ export const CoreInputs: React.FC<CoreInputsProps> = ({
 
   // Handle Down Payment % Change
   const handlePercentChange = (pct: number) => {
-    const validPct = Math.max(5, Math.min(pct, 90));
+    const validPct = isNaN(pct) ? 0 : Math.max(0, Math.min(pct, 100));
     const newAmount = Math.round((inputs.propertyPrice * validPct) / 100);
     onChange({
       downPaymentPercent: validPct,
@@ -48,8 +48,8 @@ export const CoreInputs: React.FC<CoreInputsProps> = ({
 
   // Handle Down Payment AED Amount Change
   const handleAmountChange = (amt: number) => {
-    const validAmt = Math.max(0, Math.min(amt, inputs.propertyPrice * 0.95));
-    const newPct = parseFloat(((validAmt / inputs.propertyPrice) * 100).toFixed(1));
+    const validAmt = isNaN(amt) ? 0 : Math.max(0, amt);
+    const newPct = inputs.propertyPrice > 0 ? parseFloat(((validAmt / inputs.propertyPrice) * 100).toFixed(1)) : 0;
     onChange({
       downPaymentAmount: validAmt,
       downPaymentPercent: newPct
@@ -144,11 +144,11 @@ export const CoreInputs: React.FC<CoreInputsProps> = ({
           <input
             id="property-price"
             type="number"
-            min={100000}
-            max={50000000}
-            step={50000}
-            value={inputs.propertyPrice}
-            onChange={(e) => handlePriceChange(Number(e.target.value))}
+            min={0}
+            step="any"
+            value={inputs.propertyPrice === 0 ? '' : inputs.propertyPrice}
+            placeholder="0"
+            onChange={(e) => handlePriceChange(e.target.value === '' ? 0 : Number(e.target.value))}
             className="w-full pl-14 pr-4 py-3 bg-slate-50/70 border border-slate-200 rounded-xl text-base sm:text-lg font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-600 font-mono-numbers transition-all"
             aria-label="Property price in UAE Dirhams"
           />
@@ -157,9 +157,9 @@ export const CoreInputs: React.FC<CoreInputsProps> = ({
         {/* Price Slider */}
         <input
           type="range"
-          min={500000}
+          min={0}
           max={15000000}
-          step={50000}
+          step={10000}
           value={inputs.propertyPrice}
           onChange={(e) => handlePriceChange(Number(e.target.value))}
           className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
@@ -214,11 +214,12 @@ export const CoreInputs: React.FC<CoreInputsProps> = ({
             <input
               id="down-payment-pct"
               type="number"
-              min={5}
-              max={90}
-              step={0.5}
-              value={inputs.downPaymentPercent}
-              onChange={(e) => handlePercentChange(Number(e.target.value))}
+              min={0}
+              max={100}
+              step="any"
+              value={inputs.downPaymentPercent === 0 ? '' : inputs.downPaymentPercent}
+              placeholder="0"
+              onChange={(e) => handlePercentChange(e.target.value === '' ? 0 : Number(e.target.value))}
               className={`w-full pr-10 pl-4 py-3 bg-slate-50/70 border rounded-xl text-base font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 font-mono-numbers transition-all ${
                 !results.isDownPaymentValid
                   ? 'border-amber-400 focus:ring-amber-400/30 text-amber-900 bg-amber-50/40'
@@ -240,10 +241,10 @@ export const CoreInputs: React.FC<CoreInputsProps> = ({
               id="down-payment-aed"
               type="number"
               min={0}
-              max={inputs.propertyPrice}
-              step={10000}
-              value={inputs.downPaymentAmount}
-              onChange={(e) => handleAmountChange(Number(e.target.value))}
+              step="any"
+              value={inputs.downPaymentAmount === 0 ? '' : inputs.downPaymentAmount}
+              placeholder="0"
+              onChange={(e) => handleAmountChange(e.target.value === '' ? 0 : Number(e.target.value))}
               className={`w-full pl-14 pr-4 py-3 bg-slate-50/70 border rounded-xl text-base font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 font-mono-numbers transition-all ${
                 !results.isDownPaymentValid
                   ? 'border-amber-400 focus:ring-amber-400/30 text-amber-900 bg-amber-50/40'

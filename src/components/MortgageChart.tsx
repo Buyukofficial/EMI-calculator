@@ -24,9 +24,12 @@ export const MortgageChart: React.FC<MortgageChartProps> = ({ results, inputs })
   const [activeTab, setActiveTab] = useState<'donut' | 'amortization'>('donut');
 
   // Donut chart data
-  const donutData = [
+  const hasLoan = results.loanAmount > 0 || results.totalInterestPaid > 0;
+  const donutData = hasLoan ? [
     { name: 'Loan Principal', value: results.loanAmount, color: '#10b981' }, // Emerald
     { name: 'Total Interest', value: results.totalInterestPaid, color: '#f59e0b' } // Amber
+  ] : [
+    { name: 'Zero Loan', value: 1, color: '#e2e8f0' }
   ];
 
   // Amortization timeline data (from yearly schedule)

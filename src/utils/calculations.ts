@@ -193,14 +193,28 @@ export function calculatePrincipalFromEMI(emi: number, annualRatePercent: number
  * @returns Structured breakdown of upfront fees
  */
 export function calculateUaeFees(propertyPrice: number, loanAmount: number): UpfrontFees {
+  if (propertyPrice <= 0 && loanAmount <= 0) {
+    return {
+      dldTransferFee: 0,
+      dldAdminFee: 0,
+      agencyCommission: 0,
+      bankArrangementFee: 0,
+      propertyValuation: 0,
+      mortgageRegistration: 0,
+      trusteeFee: 0,
+      estimatedInsuranceAnnual: 0,
+      totalFeesOnly: 0
+    };
+  }
+
   const dldTransferFee = propertyPrice * 0.04;
-  const dldAdminFee = 580;
+  const dldAdminFee = propertyPrice > 0 ? 580 : 0;
   const agencyCommission = propertyPrice * 0.02 * 1.05; // 2% + 5% VAT
-  const rawBankFee = Math.max(10000, loanAmount * 0.01);
-  const bankArrangementFee = rawBankFee * 1.05; // + 5% VAT
-  const propertyValuation = 3000 * 1.05; // AED 3,150
-  const mortgageRegistration = (loanAmount * 0.0025) + 290;
-  const trusteeFee = propertyPrice >= 500000 ? 4000 * 1.05 : 2000 * 1.05; // Trustee fee
+  const rawBankFee = loanAmount > 0 ? Math.max(10000, loanAmount * 0.01) : 0;
+  const bankArrangementFee = rawBankFee > 0 ? rawBankFee * 1.05 : 0; // + 5% VAT
+  const propertyValuation = loanAmount > 0 ? 3000 * 1.05 : 0; // AED 3,150
+  const mortgageRegistration = loanAmount > 0 ? (loanAmount * 0.0025) + 290 : 0;
+  const trusteeFee = propertyPrice >= 500000 ? 4000 * 1.05 : (propertyPrice > 0 ? 2000 * 1.05 : 0); // Trustee fee
   const estimatedInsuranceAnnual = loanAmount * 0.003; // ~0.3% approx p.a.
 
   const totalFeesOnly = 
@@ -261,6 +275,16 @@ export function buildAmortizationSchedule(inputs: MortgageInputs): {
   const effectiveTenureYears = totalMonths / 12;
 
   const loanAmount = Math.max(0, propertyPrice - downPaymentAmount);
+  if (loanAmount <= 0) {
+    return {
+      monthlySchedule: [],
+      yearlySchedule: [],
+      initialEMI: 0,
+      secondaryEMI: 0,
+      totalInterestPaid: 0,
+      totalAmountPayable: 0
+    };
+  }
   const monthlySchedule: AmortizationRow[] = [];
 
   // Flat Rate Calculation

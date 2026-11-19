@@ -34,11 +34,18 @@ export const HeroCalculatorTop: React.FC<HeroCalculatorTopProps> = ({
   const [showPropertyDetails, setShowPropertyDetails] = useState<boolean>(false);
   const st = results.stressTest;
 
-  // Handle direct Loan Amount editing
+  // Handle direct Loan Amount editing (allows 0 or any custom amount)
   const handleLoanAmountChange = (newLoan: number) => {
-    const validLoan = Math.max(50000, Math.min(newLoan, 100000000));
+    const validLoan = isNaN(newLoan) ? 0 : Math.max(0, newLoan);
+    if (validLoan === 0) {
+      onChange({
+        propertyPrice: 0,
+        downPaymentAmount: 0
+      });
+      return;
+    }
     // Keep down payment percentage, update property price & down payment AED
-    const downPct = inputs.downPaymentPercent;
+    const downPct = inputs.downPaymentPercent > 0 ? inputs.downPaymentPercent : 20;
     const ltvRatio = (100 - downPct) / 100;
     const newPrice = Math.round(validLoan / (ltvRatio > 0 ? ltvRatio : 0.8));
     const newDown = newPrice - validLoan;
@@ -50,7 +57,7 @@ export const HeroCalculatorTop: React.FC<HeroCalculatorTopProps> = ({
 
   // Handle Property Price Change
   const handlePriceChange = (price: number) => {
-    const validPrice = Math.max(100000, Math.min(price, 100000000));
+    const validPrice = isNaN(price) ? 0 : Math.max(0, price);
     const newDown = Math.round((validPrice * inputs.downPaymentPercent) / 100);
     onChange({
       propertyPrice: validPrice,
@@ -60,7 +67,7 @@ export const HeroCalculatorTop: React.FC<HeroCalculatorTopProps> = ({
 
   // Handle Down Payment % Change
   const handlePercentChange = (pct: number) => {
-    const validPct = Math.max(5, Math.min(pct, 90));
+    const validPct = isNaN(pct) ? 0 : Math.max(0, Math.min(pct, 100));
     const newAmount = Math.round((inputs.propertyPrice * validPct) / 100);
     onChange({
       downPaymentPercent: validPct,
@@ -170,7 +177,7 @@ export const HeroCalculatorTop: React.FC<HeroCalculatorTopProps> = ({
               </div>
 
               {inputs.calculationMode === 'target_emi' ? (
-                // Target EMI Input
+                // Target EMI Input (allows 0 or any number)
                 <>
                   <div className="mt-2.5 relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
@@ -178,11 +185,11 @@ export const HeroCalculatorTop: React.FC<HeroCalculatorTopProps> = ({
                     </span>
                     <input
                       type="number"
-                      min={1000}
-                      max={200000}
-                      step={500}
-                      value={inputs.targetEMI || Math.round(results.initialMonthlyEMI)}
-                      onChange={(e) => onChange({ targetEMI: Number(e.target.value) })}
+                      min={0}
+                      step="any"
+                      value={inputs.targetEMI === 0 ? '' : inputs.targetEMI}
+                      placeholder="0"
+                      onChange={(e) => onChange({ targetEMI: e.target.value === '' ? 0 : Number(e.target.value) })}
                       className="w-full pl-12 pr-3 py-2 bg-white border border-emerald-300 rounded-xl text-base font-extrabold text-emerald-950 font-mono-numbers focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                       aria-label="Target monthly EMI budget in AED"
                     />
@@ -190,10 +197,10 @@ export const HeroCalculatorTop: React.FC<HeroCalculatorTopProps> = ({
 
                   <input
                     type="range"
-                    min={2000}
+                    min={0}
                     max={50000}
-                    step={500}
-                    value={inputs.targetEMI || Math.round(results.initialMonthlyEMI)}
+                    step={250}
+                    value={inputs.targetEMI || 0}
                     onChange={(e) => onChange({ targetEMI: Number(e.target.value) })}
                     className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600 mt-2"
                   />
@@ -202,7 +209,7 @@ export const HeroCalculatorTop: React.FC<HeroCalculatorTopProps> = ({
                   </div>
                 </>
               ) : (
-                // Standard Loan Amount Input
+                // Standard Loan Amount Input (allows 0 or any custom amount as desired)
                 <>
                   <div className="mt-2.5 relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
@@ -210,11 +217,11 @@ export const HeroCalculatorTop: React.FC<HeroCalculatorTopProps> = ({
                     </span>
                     <input
                       type="number"
-                      min={50000}
-                      max={50000000}
-                      step={50000}
-                      value={results.loanAmount}
-                      onChange={(e) => handleLoanAmountChange(Number(e.target.value))}
+                      min={0}
+                      step="any"
+                      value={results.loanAmount === 0 ? '' : results.loanAmount}
+                      placeholder="0"
+                      onChange={(e) => handleLoanAmountChange(e.target.value === '' ? 0 : Number(e.target.value))}
                       className="w-full pl-12 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-base font-extrabold text-slate-900 font-mono-numbers focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                       aria-label="Mortgage loan amount in AED"
                     />
@@ -222,15 +229,15 @@ export const HeroCalculatorTop: React.FC<HeroCalculatorTopProps> = ({
 
                   <input
                     type="range"
-                    min={200000}
-                    max={12000000}
-                    step={50000}
-                    value={results.loanAmount}
+                    min={0}
+                    max={15000000}
+                    step={10000}
+                    value={results.loanAmount || 0}
                     onChange={(e) => handleLoanAmountChange(Number(e.target.value))}
                     className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600 mt-2"
                   />
                   <div className="text-[11px] text-slate-500 font-medium mt-1">
-                    LTV: {100 - inputs.downPaymentPercent}% (Deposit: AED {formatNumber(inputs.downPaymentAmount)})
+                    LTV: {inputs.propertyPrice > 0 ? 100 - inputs.downPaymentPercent : 0}% (Deposit: AED {formatNumber(inputs.downPaymentAmount)})
                   </div>
                 </>
               )}
@@ -591,10 +598,11 @@ export const HeroCalculatorTop: React.FC<HeroCalculatorTopProps> = ({
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">AED</span>
                   <input
                     type="number"
-                    min={100000}
-                    step={50000}
-                    value={inputs.propertyPrice}
-                    onChange={(e) => handlePriceChange(Number(e.target.value))}
+                    min={0}
+                    step="any"
+                    value={inputs.propertyPrice === 0 ? '' : inputs.propertyPrice}
+                    placeholder="0"
+                    onChange={(e) => handlePriceChange(e.target.value === '' ? 0 : Number(e.target.value))}
                     className="w-full pl-12 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-900 font-mono-numbers"
                   />
                 </div>
@@ -608,11 +616,12 @@ export const HeroCalculatorTop: React.FC<HeroCalculatorTopProps> = ({
                 <div className="relative">
                   <input
                     type="number"
-                    min={5}
-                    max={90}
-                    step={0.5}
-                    value={inputs.downPaymentPercent}
-                    onChange={(e) => handlePercentChange(Number(e.target.value))}
+                    min={0}
+                    max={100}
+                    step="any"
+                    value={inputs.downPaymentPercent === 0 ? '' : inputs.downPaymentPercent}
+                    placeholder="0"
+                    onChange={(e) => handlePercentChange(e.target.value === '' ? 0 : Number(e.target.value))}
                     className="w-full pl-3 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-900 font-mono-numbers"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">%</span>
