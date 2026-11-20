@@ -365,20 +365,21 @@ export const App: React.FC = () => {
 
       {/* Top Dashboard Header Bar */}
       <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-15 sm:h-16 flex items-center justify-between gap-2">
           
           {/* Logo & Dashboard Title */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-sm shadow-blue-500/20">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs sm:text-sm shadow-sm shadow-blue-500/20 shrink-0">
               AED
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-                  UAE Mortgage EMI Calculator
+                <h1 className="text-sm sm:text-lg font-bold text-slate-900 tracking-tight truncate">
+                  <span className="sm:hidden">EMI Calculator</span>
+                  <span className="hidden sm:inline">UAE Mortgage EMI Calculator</span>
                 </h1>
-                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                  🇦🇪 Central Bank LTV Compliant
+                <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 shrink-0">
+                  🇦🇪 Central Bank Compliant
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 hidden sm:block">
@@ -388,13 +389,13 @@ export const App: React.FC = () => {
           </div>
 
           {/* Header Controls: Currency, History & Share */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {/* Currency Switcher */}
             <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200/80">
               <button
                 type="button"
                 onClick={() => setCurrency('AED')}
-                className={`text-xs font-bold px-2.5 py-1 rounded-md transition-all ${
+                className={`text-[11px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 rounded-md transition-all ${
                   currency === 'AED'
                     ? 'bg-white text-blue-600 shadow-2xs'
                     : 'text-slate-500 hover:text-slate-900'
@@ -405,7 +406,7 @@ export const App: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setCurrency('$')}
-                className={`text-xs font-bold px-2.5 py-1 rounded-md transition-all ${
+                className={`text-[11px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 rounded-md transition-all ${
                   currency === '$'
                     ? 'bg-white text-blue-600 shadow-2xs'
                     : 'text-slate-500 hover:text-slate-900'
@@ -418,20 +419,20 @@ export const App: React.FC = () => {
             {/* History Modal Trigger */}
             <button
               onClick={() => setIsHistoryOpen(true)}
-              className="h-9 px-3 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              className="h-8 sm:h-9 px-2 sm:px-3 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors"
               title="Calculation History"
             >
-              <History className="w-4 h-4 text-blue-600 stroke-[2]" />
+              <History className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 stroke-[2]" />
               <span className="hidden sm:inline">History</span>
             </button>
 
             {/* Share / Copy Action */}
             <button
               onClick={handleShare}
-              className="h-9 px-3.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-blue-500/20 active:scale-95 transition-all"
+              className="h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-blue-500/20 active:scale-95 transition-all"
             >
               <Share2 className="w-3.5 h-3.5 stroke-[2.2]" />
-              <span>Share</span>
+              <span className="hidden xs:inline">Share</span>
             </button>
           </div>
 
@@ -439,25 +440,25 @@ export const App: React.FC = () => {
       </header>
 
       {/* Main Dashboard Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-12 sm:pb-8 space-y-4 sm:space-y-6">
 
         {/* =========================================================================
             SECTION 1: LOAN PARAMETERS (PRIORITIZED AT TOP - BEFORE ALL OUTPUTS)
             ========================================================================= */}
-        <section className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200/80 shadow-xs space-y-5">
+        <section className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-7 border border-slate-200/80 shadow-xs space-y-4 sm:space-y-5">
           
           {/* Header */}
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                <Calculator className="w-4 h-4 stroke-[2.2]" />
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 sm:pb-4">
+            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                <Calculator className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.2]" />
               </div>
-              <div>
-                <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+              <div className="min-w-0">
+                <h2 className="text-sm sm:text-lg font-bold text-slate-900 tracking-tight truncate">
                   Loan Parameters
                 </h2>
-                <p className="text-xs text-slate-500">
-                  Select any circular option to solve for that field. Modify numbers as needed.
+                <p className="text-[11px] sm:text-xs text-slate-500 truncate hidden xs:block">
+                  Select any circular option to solve for that field
                 </p>
               </div>
             </div>
@@ -465,213 +466,215 @@ export const App: React.FC = () => {
             <button
               type="button"
               onClick={handleReset}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs text-slate-600 hover:text-blue-600 flex items-center gap-1.5 font-semibold transition-colors"
+              className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-[11px] sm:text-xs text-slate-600 hover:text-blue-600 flex items-center gap-1 font-semibold transition-colors shrink-0"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset Defaults</span>
+              <RotateCcw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              <span>Reset</span>
             </button>
           </div>
 
           {/* Form Inputs Container (Centered on desktop, clean rows matching iOS reference) */}
-          <div className="max-w-2xl mx-auto space-y-3.5">
+          <div className="max-w-2xl mx-auto space-y-3">
             
             {/* Row 1: Loan Amount */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={() => setTarget('loan')}
-                className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all focus:outline-hidden"
+                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center shrink-0 transition-all focus:outline-hidden"
                 title="Calculate Loan Amount from EMI"
               >
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 flex items-center justify-center transition-all ${
                   target === 'loan' ? 'border-blue-600' : 'border-slate-300'
                 }`}>
-                  {target === 'loan' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                  {target === 'loan' && <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-blue-600" />}
                 </div>
               </button>
 
-              <label className="text-sm font-semibold text-slate-700 w-28 sm:w-32 shrink-0">
+              <label className="text-xs sm:text-sm font-semibold text-slate-700 w-24 sm:w-32 shrink-0">
                 Loan Amount
               </label>
 
-              <div className="flex-1 relative flex items-center">
+              <div className="flex-1 relative flex items-center min-w-0">
                 <input
                   type="text"
                   inputMode="decimal"
                   value={formatCommaValue(loanAmount)}
                   onChange={handleInputChange(setLoanAmount)}
                   placeholder="0"
-                  className="w-full h-11 pl-3.5 pr-14 bg-[#EEF2F6] text-slate-900 text-sm font-bold rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
+                  className="w-full h-10 sm:h-11 pl-3 pr-12 sm:pr-14 bg-[#EEF2F6] text-slate-900 text-sm font-bold rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
                 />
-                <span className="absolute right-3.5 text-xs font-bold text-slate-500 pointer-events-none">
+                <span className="absolute right-3 sm:right-3.5 text-xs font-bold text-slate-500 pointer-events-none">
                   {currency}
                 </span>
               </div>
             </div>
 
             {/* Row 2: Interest */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={() => setTarget('interest')}
-                className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all focus:outline-hidden"
+                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center shrink-0 transition-all focus:outline-hidden"
                 title="Calculate Interest Rate from EMI"
               >
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 flex items-center justify-center transition-all ${
                   target === 'interest' ? 'border-blue-600' : 'border-slate-300'
                 }`}>
-                  {target === 'interest' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                  {target === 'interest' && <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-blue-600" />}
                 </div>
               </button>
 
-              <label className="text-sm font-semibold text-slate-700 w-28 sm:w-32 shrink-0">
+              <label className="text-xs sm:text-sm font-semibold text-slate-700 w-24 sm:w-32 shrink-0">
                 Interest
               </label>
 
-              <div className="flex-1 relative flex items-center">
+              <div className="flex-1 relative flex items-center min-w-0">
                 <input
                   type="text"
                   inputMode="decimal"
                   value={interestRate}
                   onChange={handleInputChange(setInterestRate)}
                   placeholder="0"
-                  className="w-full h-11 pl-3.5 pr-8 bg-[#EEF2F6] text-slate-900 text-sm font-bold rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
+                  className="w-full h-10 sm:h-11 pl-3 pr-8 bg-[#EEF2F6] text-slate-900 text-sm font-bold rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
                 />
-                <span className="absolute right-3.5 text-xs font-bold text-slate-500 pointer-events-none">
+                <span className="absolute right-3 sm:right-3.5 text-xs font-bold text-slate-500 pointer-events-none">
                   %
                 </span>
               </div>
             </div>
 
             {/* Row 3: Period with Clean Segmented Year / Month Switch */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={() => setTarget('period')}
-                className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all focus:outline-hidden"
+                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center shrink-0 transition-all focus:outline-hidden"
                 title="Calculate Period from EMI"
               >
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 flex items-center justify-center transition-all ${
                   target === 'period' ? 'border-blue-600' : 'border-slate-300'
                 }`}>
                   {target === 'period' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
                 </div>
               </button>
 
-              <label className="text-sm font-semibold text-slate-700 w-28 sm:w-32 shrink-0">
+              <label className="text-xs sm:text-sm font-semibold text-slate-700 w-24 sm:w-32 shrink-0">
                 Period
               </label>
 
-              <div className="flex-1 flex items-center bg-[#EEF2F6] rounded-xl h-11 px-3 gap-2">
+              <div className="flex-1 flex items-center bg-[#EEF2F6] rounded-xl h-10 sm:h-11 px-2.5 sm:px-3 gap-1.5 sm:gap-2 min-w-0">
                 <input
                   type="text"
                   inputMode="decimal"
                   value={period}
                   onChange={handleInputChange(setPeriod)}
                   placeholder="0"
-                  className="flex-1 bg-transparent text-slate-900 text-sm font-bold outline-hidden text-left"
+                  className="min-w-0 w-12 flex-1 bg-transparent text-slate-900 text-sm font-bold outline-hidden text-left"
                 />
 
                 {/* Clean Segmented Button Toggle */}
-                <div className="flex bg-slate-200/80 p-0.5 rounded-lg shrink-0">
+                <div className="flex bg-slate-200/90 p-0.5 rounded-lg shrink-0 text-xs">
                   <button
                     type="button"
                     onClick={() => setPeriodUnit('year')}
-                    className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                    className={`px-2 sm:px-3 py-0.5 sm:py-1 font-bold rounded-md transition-all ${
                       periodUnit === 'year'
                         ? 'bg-white text-blue-600 shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Years
+                    <span className="sm:hidden">Yr</span>
+                    <span className="hidden sm:inline">Years</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setPeriodUnit('month')}
-                    className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                    className={`px-2 sm:px-3 py-0.5 sm:py-1 font-bold rounded-md transition-all ${
                       periodUnit === 'month'
                         ? 'bg-white text-blue-600 shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Months
+                    <span className="sm:hidden">Mo</span>
+                    <span className="hidden sm:inline">Months</span>
                   </button>
                 </div>
               </div>
             </div>
 
             {/* Row 4: Monthly EMI */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={() => setTarget('emi')}
-                className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all focus:outline-hidden"
+                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center shrink-0 transition-all focus:outline-hidden"
                 title="Calculate EMI from Loan, Interest & Period"
               >
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 flex items-center justify-center transition-all ${
                   target === 'emi' ? 'border-blue-600' : 'border-slate-300'
                 }`}>
-                  {target === 'emi' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                  {target === 'emi' && <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-blue-600" />}
                 </div>
               </button>
 
-              <label className="text-sm font-semibold text-slate-700 w-28 sm:w-32 shrink-0">
+              <label className="text-xs sm:text-sm font-semibold text-slate-700 w-24 sm:w-32 shrink-0">
                 Monthly EMI
               </label>
 
-              <div className="flex-1 relative flex items-center">
+              <div className="flex-1 relative flex items-center min-w-0">
                 <input
                   type="text"
                   inputMode="decimal"
                   value={target === 'emi' ? (emi ? formatCommaValue(emi) : '') : formatCommaValue(emi)}
                   onChange={handleInputChange(setEmi)}
                   placeholder={target === 'emi' ? 'Auto-calculated' : '0'}
-                  className={`w-full h-11 pl-3.5 pr-14 bg-[#EEF2F6] text-slate-900 text-sm font-bold rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left ${
+                  className={`w-full h-10 sm:h-11 pl-3 pr-12 sm:pr-14 bg-[#EEF2F6] text-slate-900 text-sm font-bold rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left ${
                     target === 'emi' ? 'text-blue-600' : ''
                   }`}
                 />
-                <span className="absolute right-3.5 text-xs font-bold text-slate-500 pointer-events-none">
+                <span className="absolute right-3 sm:right-3.5 text-xs font-bold text-slate-500 pointer-events-none">
                   {currency}
                 </span>
               </div>
             </div>
 
             {/* Row 5: Processing Fee */}
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 shrink-0" />
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
 
-              <label className="text-sm font-semibold text-slate-700 w-28 sm:w-32 shrink-0">
+              <label className="text-xs sm:text-sm font-semibold text-slate-700 w-24 sm:w-32 shrink-0">
                 Processing Fee
               </label>
 
-              <div className="flex-1 relative flex items-center">
+              <div className="flex-1 relative flex items-center min-w-0">
                 <input
                   type="text"
                   inputMode="decimal"
                   value={processingFeePercent}
                   onChange={handleInputChange(setProcessingFeePercent)}
                   placeholder="0"
-                  className="w-full h-11 pl-3.5 pr-8 bg-[#EEF2F6] text-slate-900 text-sm font-bold rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
+                  className="w-full h-10 sm:h-11 pl-3 pr-8 bg-[#EEF2F6] text-slate-900 text-sm font-bold rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
                 />
-                <span className="absolute right-3.5 text-xs font-bold text-slate-500 pointer-events-none">
+                <span className="absolute right-3 sm:right-3.5 text-xs font-bold text-slate-500 pointer-events-none">
                   %
                 </span>
               </div>
             </div>
 
             {/* Action Buttons: Reset & Calculate */}
-            <div className="pt-2 grid grid-cols-2 gap-3">
+            <div className="pt-2 grid grid-cols-2 gap-2.5 sm:gap-3">
               <button
                 type="button"
                 onClick={handleReset}
-                className="w-full h-12 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-all flex items-center justify-center active:scale-[0.98]"
+                className="w-full h-11 sm:h-12 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs sm:text-sm transition-all flex items-center justify-center active:scale-[0.98]"
               >
                 Reset
               </button>
               <button
                 type="button"
                 onClick={performCalculation}
-                className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition-all shadow-md shadow-blue-500/20 flex items-center justify-center active:scale-[0.98]"
+                className="w-full h-11 sm:h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm transition-all shadow-md shadow-blue-500/20 flex items-center justify-center active:scale-[0.98]"
               >
                 Calculate
               </button>
@@ -683,84 +686,84 @@ export const App: React.FC = () => {
         {/* =========================================================================
             SECTION 2: CALCULATION RESULTS (KPI METRIC CARDS - DIRECTLY AFTER PARAMETERS)
             ========================================================================= */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
           
           {/* Monthly EMI Card */}
-          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/70 shadow-2xs relative overflow-hidden flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Monthly EMI</span>
-              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                <CreditCard className="w-4 h-4" />
+          <div className="bg-white rounded-2xl p-3.5 sm:p-5 border border-slate-200/70 shadow-2xs relative overflow-hidden flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-500 mb-1.5 sm:mb-2">
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Monthly EMI</span>
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
             <div>
               <div className="flex items-baseline gap-1">
-                <span className="text-xs font-bold text-slate-400">{currency}</span>
-                <span className="text-xl sm:text-2xl font-extrabold text-blue-600 tracking-tight font-mono-numbers">
+                <span className="text-[10px] sm:text-xs font-bold text-slate-400">{currency}</span>
+                <span className="text-lg sm:text-2xl font-extrabold text-blue-600 tracking-tight font-mono-numbers">
                   {formatNumber(resultEmi)}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">Standard reducing balance</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 sm:mt-1 truncate">Standard reducing</p>
             </div>
           </div>
 
           {/* Total Interest Card */}
-          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/70 shadow-2xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Total Interest</span>
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                <Percent className="w-4 h-4" />
+          <div className="bg-white rounded-2xl p-3.5 sm:p-5 border border-slate-200/70 shadow-2xs flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-500 mb-1.5 sm:mb-2">
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Total Interest</span>
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                <Percent className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
             <div>
               <div className="flex items-baseline gap-1">
-                <span className="text-xs font-bold text-slate-400">{currency}</span>
-                <span className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight font-mono-numbers">
+                <span className="text-[10px] sm:text-xs font-bold text-slate-400">{currency}</span>
+                <span className="text-lg sm:text-2xl font-extrabold text-slate-900 tracking-tight font-mono-numbers">
                   {formatNumber(resultTotalInterest)}
                 </span>
               </div>
-              <p className="text-[11px] text-emerald-600 font-semibold mt-1">
-                {interestPercent}% of total payment
+              <p className="text-[10px] sm:text-[11px] text-emerald-600 font-semibold mt-0.5 sm:mt-1 truncate">
+                {interestPercent}% of payment
               </p>
             </div>
           </div>
 
           {/* Total Payment Card */}
-          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/70 shadow-2xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Total Payment</span>
-              <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
-                <Calendar className="w-4 h-4" />
+          <div className="bg-white rounded-2xl p-3.5 sm:p-5 border border-slate-200/70 shadow-2xs flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-500 mb-1.5 sm:mb-2">
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Total Payment</span>
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
             </div>
             <div>
               <div className="flex items-baseline gap-1">
-                <span className="text-xs font-bold text-slate-400">{currency}</span>
-                <span className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight font-mono-numbers">
+                <span className="text-[10px] sm:text-xs font-bold text-slate-400">{currency}</span>
+                <span className="text-lg sm:text-2xl font-extrabold text-slate-900 tracking-tight font-mono-numbers">
                   {formatNumber(resultTotalPayment)}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">Principal + Interest</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 sm:mt-1 truncate">Principal + Interest</p>
             </div>
           </div>
 
           {/* +2% UAE Stress Rate EMI Card */}
-          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-emerald-200/80 bg-gradient-to-br from-white to-emerald-50/30 shadow-2xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-emerald-700 mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider">+2% Stress EMI</span>
-              <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                <ShieldCheck className="w-4 h-4 stroke-[2.2]" />
+          <div className="bg-white rounded-2xl p-3.5 sm:p-5 border border-emerald-200/80 bg-gradient-to-br from-white to-emerald-50/30 shadow-2xs flex flex-col justify-between">
+            <div className="flex items-center justify-between text-emerald-700 mb-1.5 sm:mb-2">
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">+2% Stress EMI</span>
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.2]" />
               </div>
             </div>
             <div>
               <div className="flex items-baseline gap-1">
-                <span className="text-xs font-bold text-emerald-600">{currency}</span>
-                <span className="text-xl sm:text-2xl font-extrabold text-emerald-700 tracking-tight font-mono-numbers">
+                <span className="text-[10px] sm:text-xs font-bold text-emerald-600">{currency}</span>
+                <span className="text-lg sm:text-2xl font-extrabold text-emerald-700 tracking-tight font-mono-numbers">
                   {formatNumber(stressEMI)}
                 </span>
               </div>
-              <p className="text-[11px] text-emerald-600 font-medium mt-1">
-                UAE Central Bank Buffer ({(R + 2).toFixed(2)}%)
+              <p className="text-[10px] sm:text-[11px] text-emerald-600 font-medium mt-0.5 sm:mt-1 truncate">
+                Central Bank Buffer ({(R + 2).toFixed(2)}%)
               </p>
             </div>
           </div>
@@ -875,73 +878,77 @@ export const App: React.FC = () => {
 
         </section>
 
-        {/* 3. Detailed Dashboard Section (Amortization Schedule & UAE Cost Breakdown) */}
-        <div className="bg-white rounded-3xl border border-slate-200/70 shadow-2xs overflow-hidden">
+        {/* =========================================================================
+            SECTION 4: AMORTIZATION SCHEDULE & UAE UPFRONT FEES
+            ========================================================================= */}
+        <section className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/70 shadow-2xs overflow-hidden">
           
           {/* Section Navigation Tabs & Export Control */}
-          <div className="px-6 py-4 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-4 bg-slate-50/60">
+          <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-slate-200/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-50/60">
             
             {/* Tabs */}
-            <div className="flex items-center bg-slate-200/80 p-1 rounded-xl text-xs font-bold">
+            <div className="flex items-center bg-slate-200/80 p-1 rounded-xl text-xs font-bold w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => setDetailsTab('schedule')}
-                className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                   detailsTab === 'schedule'
                     ? 'bg-white text-blue-600 shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <TableProperties className="w-3.5 h-3.5" />
-                <span>Amortization Schedule</span>
+                <span className="sm:hidden">Schedule</span>
+                <span className="hidden sm:inline">Amortization Schedule</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setDetailsTab('fees')}
-                className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                   detailsTab === 'fees'
                     ? 'bg-white text-blue-600 shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <Receipt className="w-3.5 h-3.5" />
-                <span>UAE Upfront Fees &amp; Costs</span>
+                <span className="sm:hidden">Upfront Fees</span>
+                <span className="hidden sm:inline">UAE Upfront Fees &amp; Costs</span>
               </button>
             </div>
 
             {/* View toggles & Export (only active on Schedule tab) */}
             {detailsTab === 'schedule' && (
-              <div className="flex items-center gap-3">
-                <div className="flex items-center bg-slate-200/80 p-1 rounded-xl text-xs font-bold">
+              <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
+                <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg text-xs font-bold">
                   <button
                     type="button"
                     onClick={() => setScheduleView('yearly')}
-                    className={`px-2.5 py-1 rounded-lg transition-all ${
+                    className={`px-2.5 py-1 rounded-md transition-all ${
                       scheduleView === 'yearly'
                         ? 'bg-white text-blue-600 shadow-2xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Yearly ({yearlySchedule.length} yrs)
+                    Yearly
                   </button>
                   <button
                     type="button"
                     onClick={() => setScheduleView('monthly')}
-                    className={`px-2.5 py-1 rounded-lg transition-all ${
+                    className={`px-2.5 py-1 rounded-md transition-all ${
                       scheduleView === 'monthly'
                         ? 'bg-white text-blue-600 shadow-2xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Monthly ({monthlySchedule.length} mos)
+                    Monthly
                   </button>
                 </div>
 
                 <button
                   type="button"
                   onClick={handleExportCSV}
-                  className="h-8 px-3 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all"
+                  className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-1.5 transition-colors shrink-0"
                   title="Export Amortization Table to CSV"
                 >
                   <Download className="w-3.5 h-3.5 text-blue-600 stroke-[2.2]" />
@@ -1042,7 +1049,7 @@ export const App: React.FC = () => {
             </div>
           )}
 
-        </div>
+        </section>
 
       </main>
 

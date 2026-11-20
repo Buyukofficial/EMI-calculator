@@ -34,9 +34,9 @@ export const DonutChart: React.FC<DonutChartProps> = ({ loanPercent, interestPer
   const interestLabelPos = toCoords(interestMidAngle);
 
   return (
-    <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-2xs flex flex-col items-center">
+    <div className="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-5 border border-slate-100 shadow-2xs flex flex-col items-center w-full">
       {/* SVG Donut */}
-      <div className="relative w-56 h-56 flex items-center justify-center">
+      <div className="relative w-48 h-48 sm:w-56 sm:h-56 flex items-center justify-center">
         <svg viewBox="0 0 200 200" className="w-full h-full transform -rotate-90">
           {/* Background circle if 0 */}
           <circle
