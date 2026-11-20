@@ -1,158 +1,576 @@
-import React, { useState, useMemo } from 'react';
-import { MortgageInputs } from './types/mortgage';
-import { calculateMortgage } from './utils/calculations';
-import { Header } from './components/Header';
-import { HeroCalculatorTop } from './components/HeroCalculatorTop';
-import { SummaryCards } from './components/SummaryCards';
-import { DbrCheck } from './components/DbrCheck';
-import { StressTestCard } from './components/StressTestCard';
-import { FeesBreakdown } from './components/FeesBreakdown';
-import { MortgageChart } from './components/MortgageChart';
-import { AmortizationSchedule } from './components/AmortizationSchedule';
-import { HelpModals, HelpTopic } from './components/HelpModals';
-import { ShieldCheck } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import {
+  History,
+  RotateCcw,
+  Share2,
+  Menu,
+  ChevronDown,
+  Check,
+  ChevronLeft
+} from 'lucide-react';
+import { DonutChart } from './components/DonutChart';
+import { DetailsModal } from './components/DetailsModal';
+import { HistoryModal, HistoryItem } from './components/HistoryModal';
+import { formatNumber } from './utils/calculations';
 
-const DEFAULT_INPUTS: MortgageInputs = {
-  propertyPrice: 2000000,
-  downPaymentPercent: 20,
-  downPaymentAmount: 400000,
-  residencyStatus: 'resident',
-  tenureYears: 25,
-  tenureMonths: 300,
-  tenureUnit: 'years',
-  calculationMode: 'loan_amount',
-  targetEMI: 8614,
-  paymentFrequency: 'monthly',
-  interestType: 'reducing',
-  rateStructure: 'fixed_variable',
-  initialRate: 4.19,
-  fixedYears: 3,
-  variableRate: 6.50,
-  flatRate: 2.75,
-  monthlyIncome: 35000,
-  existingDebts: 2500,
-  stressTestBuffer: 2.0
-};
+type SolveTarget = 'loan' | 'interest' | 'period' | 'emi';
 
 export const App: React.FC = () => {
-  const [inputs, setInputs] = useState<MortgageInputs>(DEFAULT_INPUTS);
-  const [helpTopic, setHelpTopic] = useState<HelpTopic>(null);
+  // Input string states - default to clean initial values matching screenshots
+  const [loanAmount, setLoanAmount] = useState<string>('1000000');
+  const [interestRate, setInterestRate] = useState<string>('6.29');
+  const [period, setPeriod] = useState<string>('12');
+  const [periodUnit, setPeriodUnit] = useState<'year' | 'month'>('year');
+  const [emi, setEmi] = useState<string>('9909.24');
+  const [processingFeePercent, setProcessingFeePercent] = useState<string>('0');
 
-  // Partial update handler for inputs
-  const handleInputChange = (updates: Partial<MortgageInputs>) => {
-    setInputs(prev => ({ ...prev, ...updates }));
+  // Calculation target (whichever radio button is checked)
+  const [target, setTarget] = useState<SolveTarget>('emi');
+
+  // Currency: default $ as in the screenshot, with quick toggle to AED
+  const [currency, setCurrency] = useState<string>('$');
+
+  // Calculated results
+  const [resultEmi, setResultEmi] = useState<number>(9909);
+  const [resultTotalInterest, setResultTotalInterest] = useState<number>(426931);
+  const [resultProcessingFee, setResultProcessingFee] = useState<number>(0);
+  const [resultTotalPayment, setResultTotalPayment] = useState<number>(1426931);
+  const [loanPercent, setLoanPercent] = useState<number>(70.08);
+  const [interestPercent, setInterestPercent] = useState<number>(29.92);
+
+  // Modals & toast
+  const [isDetailsOpen, setIsDetailsOpen] = useState<boolean>(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [historyList, setHistoryList] = useState<HistoryItem[]>([]);
+
+  // Load history from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('emi_history');
+      if (saved) {
+        setHistoryList(JSON.parse(saved));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Format number with commas for display
+  const formatCommaValue = (val: string) => {
+    if (!val) return '';
+    const parts = val.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return parts.join('.');
   };
 
-  // Reset to UAE default benchmark values
+  // Safe handler for input text changes: allows blank string, avoids snap to 0
+  const handleInputChange = (setter: (val: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/,/g, '');
+    if (raw === '') {
+      setter('');
+      return;
+    }
+    // Only accept numbers and at most 1 decimal
+    if (/^\d*\.?\d*$/.test(raw)) {
+      setter(raw);
+    }
+  };
+
+  // Trigger calculation based on active radio target
+  const performCalculation = () => {
+    const P = parseFloat(loanAmount) || 0;
+    const R = parseFloat(interestRate) || 0;
+    const rawPeriod = parseFloat(period) || 0;
+    const N = periodUnit === 'year' ? rawPeriod * 12 : rawPeriod;
+    const E = parseFloat(emi) || 0;
+    const feePct = parseFloat(processingFeePercent) || 0;
+
+    let computedEMI = E;
+    let computedP = P;
+    let computedR = R;
+    let computedN = N;
+
+    const monthlyRate = (R / 12) / 100;
+
+    if (target === 'emi') {
+      if (P <= 0 || N <= 0) return;
+      if (monthlyRate === 0) {
+        computedEMI = P / N;
+      } else {
+        const factor = Math.pow(1 + monthlyRate, N);
+        computedEMI = (P * monthlyRate * factor) / (factor - 1);
+      }
+      setEmi(computedEMI.toFixed(2));
+    } else if (target === 'loan') {
+      if (E <= 0 || N <= 0) return;
+      if (monthlyRate === 0) {
+        computedP = E * N;
+      } else {
+        const factor = Math.pow(1 + monthlyRate, N);
+        computedP = (E * (factor - 1)) / (monthlyRate * factor);
+      }
+      computedEMI = E;
+      setLoanAmount(Math.round(computedP).toString());
+    } else if (target === 'period') {
+      if (P <= 0 || E <= 0 || monthlyRate === 0) return;
+      const numerator = Math.log(E / (E - P * monthlyRate));
+      const denominator = Math.log(1 + monthlyRate);
+      if (numerator > 0 && denominator > 0) {
+        computedN = numerator / denominator;
+        const displayPeriod = periodUnit === 'year' ? (computedN / 12).toFixed(1) : Math.round(computedN).toString();
+        setPeriod(displayPeriod);
+      }
+      computedEMI = E;
+    } else if (target === 'interest') {
+      // Solve for interest rate via binary search
+      if (P <= 0 || E <= 0 || N <= 0) return;
+      let low = 0.00001;
+      let high = 1.0; // 100% monthly rate max
+      for (let iter = 0; iter < 40; iter++) {
+        const mid = (low + high) / 2;
+        const factor = Math.pow(1 + mid, N);
+        const testE = (P * mid * factor) / (factor - 1);
+        if (testE < E) {
+          low = mid;
+        } else {
+          high = mid;
+        }
+      }
+      const annualRate = ((low + high) / 2) * 12 * 100;
+      computedR = annualRate;
+      setInterestRate(annualRate.toFixed(2));
+      computedEMI = E;
+    }
+
+    const principal = target === 'loan' ? computedP : P;
+    const tenureMonths = target === 'period' ? computedN : N;
+    const finalEMI = target === 'emi' ? computedEMI : (parseFloat(emi) || computedEMI);
+
+    const totalPay = finalEMI * tenureMonths;
+    const totalInt = Math.max(0, totalPay - principal);
+    const feeAmount = (principal * feePct) / 100;
+
+    const intPct = totalPay > 0 ? (totalInt / totalPay) * 100 : 0;
+    const pPct = totalPay > 0 ? (principal / totalPay) * 100 : 0;
+
+    setResultEmi(Math.round(finalEMI));
+    setResultTotalInterest(Math.round(totalInt));
+    setResultProcessingFee(Math.round(feeAmount));
+    setResultTotalPayment(Math.round(totalPay));
+    setLoanPercent(parseFloat(pPct.toFixed(2)));
+    setInterestPercent(parseFloat(intPct.toFixed(2)));
+
+    // Save calculation to history
+    const newItem: HistoryItem = {
+      id: Date.now().toString(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      loanAmount: principal.toString(),
+      interest: R.toString(),
+      period: rawPeriod.toString(),
+      periodUnit,
+      emi: finalEMI.toFixed(2),
+      currency
+    };
+
+    const updatedHistory = [newItem, ...historyList.slice(0, 19)];
+    setHistoryList(updatedHistory);
+    try {
+      localStorage.setItem('emi_history', JSON.stringify(updatedHistory));
+    } catch {
+      // ignore
+    }
+  };
+
+  // Reset to initial clean values
   const handleReset = () => {
-    setInputs(DEFAULT_INPUTS);
+    setLoanAmount('1000000');
+    setInterestRate('6.29');
+    setPeriod('12');
+    setPeriodUnit('year');
+    setEmi('9909.24');
+    setProcessingFeePercent('0');
+    setTarget('emi');
+    setResultEmi(9909);
+    setResultTotalInterest(426931);
+    setResultProcessingFee(0);
+    setResultTotalPayment(1426931);
+    setLoanPercent(70.08);
+    setInterestPercent(29.92);
   };
 
-  // Print or save as PDF
-  const handlePrint = () => {
-    window.print();
+  // Share calculation summary
+  const handleShare = async () => {
+    const text = `EMI Calculation Summary:\n• Monthly EMI: ${currency} ${formatNumber(resultEmi)}\n• Total Interest: ${currency} ${formatNumber(resultTotalInterest)}\n• Processing Fee: ${currency} ${formatNumber(resultProcessingFee)}\n• Total Payment: ${currency} ${formatNumber(resultTotalPayment)}\n(Calculated with UAE EMI Calculator)`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'EMI Calculator Result',
+          text
+        });
+        return;
+      } catch {
+        // Fallback to clipboard
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setToastMessage('Summary copied to clipboard!');
+      setTimeout(() => setToastMessage(null), 2500);
+    } catch {
+      setToastMessage('Could not copy to clipboard.');
+      setTimeout(() => setToastMessage(null), 2500);
+    }
   };
 
-  // Memoized full mortgage calculation results
-  const results = useMemo(() => {
-    return calculateMortgage(inputs);
-  }, [inputs]);
+  // Handle restoring item from history
+  const handleRestoreHistory = (item: HistoryItem) => {
+    setLoanAmount(item.loanAmount);
+    setInterestRate(item.interest);
+    setPeriod(item.period);
+    setPeriodUnit(item.periodUnit);
+    setEmi(item.emi);
+    setCurrency(item.currency || '$');
+    setIsHistoryOpen(false);
+  };
+
+  const handleClearHistory = () => {
+    setHistoryList([]);
+    try {
+      localStorage.removeItem('emi_history');
+    } catch {
+      // ignore
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#F2F2F7] sm:py-8 flex flex-col items-center justify-start text-slate-800 antialiased selection:bg-blue-100 selection:text-blue-900">
       
-      {/* Header bar */}
-      <Header
-        onReset={handleReset}
-        onPrint={handlePrint}
-        onOpenHelp={() => setHelpTopic('all')}
-      />
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-4 z-50 px-4 py-2 bg-slate-900/90 text-white text-xs font-semibold rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-top-2">
+          {toastMessage}
+        </div>
+      )}
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {/* Mobile Wrapper Container - replicates native iOS mobile frame */}
+      <div className="w-full max-w-[430px] bg-[#F2F2F7] sm:rounded-[44px] sm:shadow-2xl sm:border sm:border-slate-300/60 overflow-hidden flex flex-col min-h-screen sm:min-h-[880px]">
         
-        {/* Top-Level Hero Input Console: Loan Amount -> Interest Rate -> Tenure -> Stress Rate -> Eligibility */}
-        <HeroCalculatorTop
-          inputs={inputs}
-          results={results}
-          onChange={handleInputChange}
-          onOpenHelp={(topic) => setHelpTopic(topic)}
-        />
+        {/* iOS Top Navigation Bar */}
+        <header className="px-5 pt-4 pb-3 flex items-center justify-between bg-transparent">
+          {/* Back / Reset Icon */}
+          <button
+            onClick={handleReset}
+            className="w-10 h-10 rounded-full flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition-colors"
+            title="Reset"
+          >
+            <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
+          </button>
 
-        {/* 4 Hero Summary Cards */}
-        <SummaryCards
-          results={results}
-          inputs={inputs}
-          onOpenEmiHelp={() => setHelpTopic('emi')}
-        />
+          {/* Title */}
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-[17px] font-semibold text-slate-900 tracking-tight">EMI Calculator</h1>
+          </div>
 
-        {/* 2-Column Responsive Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Right Header Controls: Currency Selector & History */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCurrency(prev => prev === '$' ? 'AED' : '$')}
+              className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-white/80 border border-slate-200/80 text-blue-600 shadow-2xs hover:bg-white transition-all"
+              title="Toggle Currency"
+            >
+              {currency}
+            </button>
+            <button
+              onClick={() => setIsHistoryOpen(true)}
+              className="w-10 h-10 rounded-full flex items-center justify-center text-blue-600 hover:bg-blue-50/80 transition-colors"
+              title="History"
+            >
+              <History className="w-5 h-5 stroke-[2]" />
+            </button>
+          </div>
+        </header>
+
+        {/* Scrollable Content Body */}
+        <div className="flex-1 px-4 pb-24 space-y-4">
           
-          {/* Left Column: Affordability, Stress Testing & UAE Fees */}
-          <div className="lg:col-span-7 space-y-6">
-            <DbrCheck
-              inputs={inputs}
-              results={results}
-              onChange={handleInputChange}
-              onOpenDbrHelp={() => setHelpTopic('dbr')}
-            />
+          {/* Calculator Inputs Card */}
+          <div className="bg-white rounded-3xl p-4 shadow-2xs border border-slate-200/60 space-y-3">
+            
+            {/* Row 1: Loan Amount */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setTarget('loan')}
+                className="w-6 h-6 rounded-full flex items-center justify-center transition-all focus:outline-hidden"
+              >
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  target === 'loan' ? 'border-blue-600' : 'border-slate-300'
+                }`}>
+                  {target === 'loan' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                </div>
+              </button>
 
-            <StressTestCard
-              inputs={inputs}
-              results={results}
-              onChange={handleInputChange}
-              onOpenStressHelp={() => setHelpTopic('stress')}
-            />
+              <label className="text-[15px] font-normal text-slate-600 w-28 shrink-0">
+                Loan Amount
+              </label>
 
-            <FeesBreakdown
-              results={results}
-              inputs={inputs}
-            />
+              <div className="flex-1 relative flex items-center">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={formatCommaValue(loanAmount)}
+                  onChange={handleInputChange(setLoanAmount)}
+                  placeholder="0"
+                  className="w-full h-11 pl-3.5 pr-8 bg-[#EEF2F6] text-slate-800 text-[15px] font-medium rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
+                />
+                <span className="absolute right-3.5 text-slate-400 text-[14px] font-medium pointer-events-none">
+                  {currency}
+                </span>
+              </div>
+            </div>
+
+            {/* Row 2: Interest */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setTarget('interest')}
+                className="w-6 h-6 rounded-full flex items-center justify-center transition-all focus:outline-hidden"
+              >
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  target === 'interest' ? 'border-blue-600' : 'border-slate-300'
+                }`}>
+                  {target === 'interest' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                </div>
+              </button>
+
+              <label className="text-[15px] font-normal text-slate-600 w-28 shrink-0">
+                Interest
+              </label>
+
+              <div className="flex-1 relative flex items-center">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={interestRate}
+                  onChange={handleInputChange(setInterestRate)}
+                  placeholder="0"
+                  className="w-full h-11 pl-3.5 pr-8 bg-[#EEF2F6] text-slate-800 text-[15px] font-medium rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
+                />
+                <span className="absolute right-3.5 text-slate-400 text-[14px] font-medium pointer-events-none">
+                  %
+                </span>
+              </div>
+            </div>
+
+            {/* Row 3: Period */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setTarget('period')}
+                className="w-6 h-6 rounded-full flex items-center justify-center transition-all focus:outline-hidden"
+              >
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  target === 'period' ? 'border-blue-600' : 'border-slate-300'
+                }`}>
+                  {target === 'period' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                </div>
+              </button>
+
+              <label className="text-[15px] font-normal text-slate-600 w-28 shrink-0">
+                Period
+              </label>
+
+              <div className="flex-1 flex items-center bg-[#EEF2F6] rounded-xl h-11 px-3.5 gap-2">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={period}
+                  onChange={handleInputChange(setPeriod)}
+                  placeholder="0"
+                  className="flex-1 bg-transparent text-slate-800 text-[15px] font-medium outline-hidden text-left"
+                />
+
+                {/* Period Unit Selector (Year / Month) */}
+                <div className="relative shrink-0">
+                  <select
+                    value={periodUnit}
+                    onChange={(e) => setPeriodUnit(e.target.value as 'year' | 'month')}
+                    className="appearance-none bg-transparent pr-5 text-slate-500 text-[13px] font-medium cursor-pointer outline-hidden"
+                  >
+                    <option value="year">Year</option>
+                    <option value="month">Month</option>
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
+            {/* Row 4: EMI */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setTarget('emi')}
+                className="w-6 h-6 rounded-full flex items-center justify-center transition-all focus:outline-hidden"
+              >
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  target === 'emi' ? 'border-blue-600' : 'border-slate-300'
+                }`}>
+                  {target === 'emi' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                </div>
+              </button>
+
+              <label className="text-[15px] font-normal text-slate-600 w-28 shrink-0">
+                EMI
+              </label>
+
+              <div className="flex-1 relative flex items-center">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={target === 'emi' ? (emi ? formatCommaValue(emi) : '') : formatCommaValue(emi)}
+                  onChange={handleInputChange(setEmi)}
+                  placeholder={target === 'emi' ? 'Calculated automatically' : '0'}
+                  className="w-full h-11 pl-3.5 pr-8 bg-[#EEF2F6] text-slate-800 text-[15px] font-medium rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
+                />
+                <span className="absolute right-3.5 text-slate-400 text-[14px] font-medium pointer-events-none">
+                  {currency}
+                </span>
+              </div>
+            </div>
+
+            {/* Row 5: Processing Fee (No radio button) */}
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 shrink-0" />
+
+              <label className="text-[15px] font-normal text-slate-600 w-28 shrink-0">
+                Processing Fee
+              </label>
+
+              <div className="flex-1 relative flex items-center">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={processingFeePercent}
+                  onChange={handleInputChange(setProcessingFeePercent)}
+                  placeholder="0"
+                  className="w-full h-11 pl-3.5 pr-8 bg-[#EEF2F6] text-slate-800 text-[15px] font-medium rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
+                />
+                <span className="absolute right-3.5 text-slate-400 text-[14px] font-medium pointer-events-none">
+                  %
+                </span>
+              </div>
+            </div>
+
           </div>
 
-          {/* Right Column: Visual Charts */}
-          <div className="lg:col-span-5 space-y-6">
-            <MortgageChart
-              results={results}
-              inputs={inputs}
-            />
+          {/* Action Buttons: Reset & Calculate */}
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <button
+              type="button"
+              onClick={handleReset}
+              className="w-full h-12 rounded-full bg-[#E5E9F0] hover:bg-slate-200 text-slate-600 font-semibold text-[15px] transition-all flex items-center justify-center active:scale-[0.98]"
+            >
+              Reset
+            </button>
+
+            <button
+              type="button"
+              onClick={performCalculation}
+              className="w-full h-12 rounded-full bg-[#2563EB] hover:bg-blue-600 text-white font-semibold text-[15px] transition-all shadow-md shadow-blue-500/20 flex items-center justify-center active:scale-[0.98]"
+            >
+              Calculate
+            </button>
           </div>
+
+          {/* Calculation Results Card */}
+          <div className="bg-white rounded-3xl p-5 shadow-2xs border border-slate-200/60 divide-y divide-slate-100">
+            <div className="flex items-center justify-between py-2.5 first:pt-0">
+              <span className="text-[14px] text-slate-500">Monthly EMI</span>
+              <span className="text-[16px] font-semibold text-slate-800 tracking-tight">
+                {currency}{formatNumber(resultEmi)}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between py-2.5">
+              <span className="text-[14px] text-slate-500">Total Interest</span>
+              <span className="text-[16px] font-semibold text-slate-800 tracking-tight">
+                {currency}{formatNumber(resultTotalInterest)}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between py-2.5">
+              <span className="text-[14px] text-slate-500">Processing Fee</span>
+              <span className="text-[16px] font-semibold text-slate-800 tracking-tight">
+                {currency}{formatNumber(resultProcessingFee)}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between py-2.5 last:pb-0">
+              <span className="text-[14px] text-slate-500">Total Payment</span>
+              <span className="text-[16px] font-semibold text-slate-800 tracking-tight">
+                {currency}{formatNumber(resultTotalPayment)}
+              </span>
+            </div>
+          </div>
+
+          {/* Donut Chart Visual Card */}
+          <DonutChart
+            loanPercent={loanPercent}
+            interestPercent={interestPercent}
+          />
 
         </div>
 
-        {/* Full-width Amortization Schedule */}
-        <AmortizationSchedule
-          results={results}
-          inputs={inputs}
-        />
+        {/* Bottom Floating/Sticky Action Bar (Share & Details) */}
+        <div className="fixed bottom-0 left-0 right-0 sm:static bg-white/80 sm:bg-transparent backdrop-blur-md sm:backdrop-blur-none border-t sm:border-t-0 border-slate-200/60 p-4 z-40 max-w-[430px] mx-auto">
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={handleShare}
+              className="h-12 rounded-full bg-[#2563EB] hover:bg-blue-600 text-white font-medium text-[15px] flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all"
+            >
+              <Share2 className="w-4 h-4 stroke-[2.2]" />
+              <span>Share</span>
+            </button>
 
-      </main>
+            <button
+              type="button"
+              onClick={() => setIsDetailsOpen(true)}
+              className="h-12 rounded-full bg-[#2563EB] hover:bg-blue-600 text-white font-medium text-[15px] flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all"
+            >
+              <Menu className="w-4 h-4 stroke-[2.2]" />
+              <span>Details</span>
+            </button>
+          </div>
+        </div>
 
-      {/* Knowledge Base Modal */}
-      <HelpModals
-        topic={helpTopic}
-        onClose={() => setHelpTopic(null)}
+      </div>
+
+      {/* Slide-over / Modal for Details (Schedule, UAE stress test & fees) */}
+      <DetailsModal
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
+        currency={currency}
+        loanAmount={parseFloat(loanAmount) || 0}
+        interestRate={parseFloat(interestRate) || 0}
+        tenureYears={periodUnit === 'year' ? (parseFloat(period) || 0) : ((parseFloat(period) || 0) / 12)}
+        monthlyEMI={resultEmi}
+        totalInterest={resultTotalInterest}
+        totalPayment={resultTotalPayment}
+        processingFeeAmount={resultProcessingFee}
       />
 
-      {/* Disclaimer Footer */}
-      <footer className="bg-white border-t border-slate-200 mt-12 py-8 text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-3">
-          <div className="flex items-center gap-2 text-slate-700 font-semibold">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>UAE Mortgage Regulatory &amp; Calculation Notice</span>
-          </div>
-
-          <p className="leading-relaxed text-slate-500">
-            <strong>Disclaimer:</strong> This calculator provides indicative estimates based on prevailing UAE Central Bank (CBUAE) mortgage guidelines, Dubai Land Department (DLD) transfer fee schedules, and standard retail banking amortization practices. Actual interest rates, processing fees, loan-to-value limits, and insurance premiums may vary depending on the lender, applicant credit rating (AECB score), employer categorization, and property valuation. This tool does not constitute official financial advice or a binding loan offer.
-          </p>
-
-          <div className="pt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-t border-slate-100 text-slate-400 text-[11px]">
-            <div>UAE Central Bank LTV: 85% / 75% (Residents) &bull; 80% / 70% (Non-residents) &bull; DBR Cap: 50% &bull; CBUAE +2% Stress Tested</div>
-            <div>Built for UAE Homebuyers &bull; 100% Client-Side</div>
-          </div>
-        </div>
-      </footer>
+      {/* History Modal */}
+      <HistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        history={historyList}
+        onSelect={handleRestoreHistory}
+        onClear={handleClearHistory}
+      />
 
     </div>
   );
