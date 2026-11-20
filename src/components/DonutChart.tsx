@@ -6,9 +6,9 @@ interface DonutChartProps {
 }
 
 export const DonutChart: React.FC<DonutChartProps> = ({ loanPercent, interestPercent }) => {
-  const radius = 58;
-  const strokeWidth = 36;
-  const circumference = 2 * Math.PI * radius; // ~364.42
+  const radius = 60;
+  const strokeWidth = 34;
+  const circumference = 2 * Math.PI * radius; // ~376.99
 
   const safeLoanPct = isNaN(loanPercent) || loanPercent < 0 ? 0 : Math.min(100, loanPercent);
   const safeInterestPct = isNaN(interestPercent) || interestPercent < 0 ? 0 : Math.min(100, interestPercent);
@@ -17,67 +17,64 @@ export const DonutChart: React.FC<DonutChartProps> = ({ loanPercent, interestPer
   const loanDash = (safeLoanPct / 100) * circumference;
   const interestDash = (safeInterestPct / 100) * circumference;
 
-  // Mid-angle for text labels (in degrees)
-  // Orange loan starts at 0° (top) and goes clockwise
+  // Mid-angles in degrees (-90deg offset so 0° is top)
   const loanMidAngle = (safeLoanPct / 2 / 100) * 360 - 90;
-  // Green interest starts after loan
   const interestMidAngle = (safeLoanPct / 100 + safeInterestPct / 2 / 100) * 360 - 90;
 
-  // Convert polar to cartesian for label positioning
-  const labelRadius = radius;
-  const toCoords = (deg: number) => {
+  // Convert polar to cartesian
+  const toCoords = (deg: number, r: number) => {
     const rad = (deg * Math.PI) / 180;
     return {
-      x: 100 + labelRadius * Math.cos(rad),
-      y: 100 + labelRadius * Math.sin(rad)
+      x: 100 + r * Math.cos(rad),
+      y: 100 + r * Math.sin(rad)
     };
   };
 
-  const loanLabelPos = toCoords(loanMidAngle);
-  const interestLabelPos = toCoords(interestMidAngle);
+  const loanLabelPos = toCoords(loanMidAngle, radius);
+  const interestLabelPos = toCoords(interestMidAngle, radius);
 
   return (
-    <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs flex flex-col items-center">
+    <div className="bg-white rounded-3xl p-5 border border-slate-200/60 shadow-2xs flex flex-col items-center">
       {/* SVG Donut */}
       <div className="relative w-56 h-56 flex items-center justify-center">
         <svg viewBox="0 0 200 200" className="w-full h-full transform -rotate-90">
-          {/* Background circle if 0 */}
+          {/* Neutral base ring */}
           <circle
             cx="100"
             cy="100"
             r={radius}
             fill="none"
-            stroke="#f1f5f9"
+            stroke="#F1F5F9"
             strokeWidth={strokeWidth}
           />
 
-          {/* Orange Loan Amount Slice */}
+          {/* Loan Amount Slice - Apple Orange #FF9500 */}
           {safeLoanPct > 0 && (
             <circle
               cx="100"
               cy="100"
               r={radius}
               fill="none"
-              stroke="#f59e0b" // Orange/Amber
+              stroke="#FF9500"
               strokeWidth={strokeWidth}
               strokeDasharray={`${loanDash} ${circumference}`}
               strokeDashoffset="0"
-              className="transition-all duration-500 ease-out"
+              className="transition-all duration-700 ease-out"
             />
           )}
 
-          {/* Green Interest Slice */}
+          {/* Interest Slice - Apple Green #34C759 */}
           {safeInterestPct > 0 && (
             <circle
               cx="100"
               cy="100"
               r={radius}
               fill="none"
-              stroke="#22c55e" // Green
+              stroke="#34C759"
               strokeWidth={strokeWidth}
               strokeDasharray={`${interestDash} ${circumference}`}
               strokeDashoffset={`-${loanDash}`}
-              className="transition-all duration-500 ease-out"
+              className="transition-all duration-700 ease-out"
             />
           )}
         </svg>
@@ -92,7 +89,7 @@ export const DonutChart: React.FC<DonutChartProps> = ({ loanPercent, interestPer
                 top: `${(interestLabelPos.y / 200) * 100}%`,
                 transform: 'translate(-50%, -50%)'
               }}
-              className="text-[11px] font-extrabold text-white drop-shadow-xs font-mono-numbers"
+              className="text-[12px] font-extrabold text-white drop-shadow-xs font-mono-numbers tracking-tight"
             >
               {safeInterestPct.toFixed(2)}%
             </div>
@@ -106,25 +103,32 @@ export const DonutChart: React.FC<DonutChartProps> = ({ loanPercent, interestPer
                 top: `${(loanLabelPos.y / 200) * 100}%`,
                 transform: 'translate(-50%, -50%)'
               }}
-              className="text-[11px] font-extrabold text-white drop-shadow-xs font-mono-numbers"
+              className="text-[12px] font-extrabold text-white drop-shadow-xs font-mono-numbers tracking-tight"
             >
               {safeLoanPct.toFixed(2)}%
             </div>
           )}
         </div>
+
+        {/* Center Cutout text */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Breakdown</span>
+          <span className="text-[13px] font-bold text-slate-700">Principal / Interest</span>
+        </div>
       </div>
 
-      {/* Legend */}
-      <div className="mt-4 flex items-center justify-center gap-6 text-xs font-medium text-slate-700">
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] inline-block"></span>
-          <span>Interest</span>
+      {/* Legend with matching badges */}
+      <div className="mt-4 flex items-center justify-center gap-4 text-xs font-semibold">
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#34C759] inline-block shadow-xs"></span>
+          <span>Interest ({safeInterestPct.toFixed(1)}%)</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b] inline-block"></span>
-          <span>Loan Amount</span>
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200/60">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#FF9500] inline-block shadow-xs"></span>
+          <span>Loan ({safeLoanPct.toFixed(1)}%)</span>
         </div>
       </div>
     </div>
   );
 };
+export default DonutChart;
