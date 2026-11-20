@@ -1,21 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   History,
   Share2,
-  Menu,
-  ChevronDown,
-  ChevronLeft,
-  Check
+  RotateCcw,
+  Download,
+  ShieldCheck,
+  Building2,
+  Calendar,
+  CreditCard,
+  Percent,
+  Check,
+  HelpCircle,
+  FileSpreadsheet,
+  TableProperties,
+  Receipt
 } from 'lucide-react';
 import { DonutChart } from './components/DonutChart';
-import { DetailsModal } from './components/DetailsModal';
 import { HistoryModal, HistoryItem } from './components/HistoryModal';
-import { formatNumber } from './utils/calculations';
+import { formatNumber, exportAmortizationToCSV } from './utils/calculations';
+import { AmortizationRow, YearlyAmortizationRow } from './types/mortgage';
 
 type SolveTarget = 'loan' | 'interest' | 'period' | 'emi';
 
 export const App: React.FC = () => {
-  // Input string states - default to clean initial values
+  // Input string states - default to benchmark values
   const [loanAmount, setLoanAmount] = useState<string>('1000000');
   const [interestRate, setInterestRate] = useState<string>('6.29');
   const [period, setPeriod] = useState<string>('12');
@@ -37,8 +45,14 @@ export const App: React.FC = () => {
   const [loanPercent, setLoanPercent] = useState<number>(70.08);
   const [interestPercent, setInterestPercent] = useState<number>(29.92);
 
-  // Modals & toast
-  const [isDetailsOpen, setIsDetailsOpen] = useState<boolean>(false);
+  // UAE Stress test (+2% rate buffer)
+  const [stressEMI, setStressEMI] = useState<number>(11284);
+
+  // Dashboard detail view states
+  const [detailsTab, setDetailsTab] = useState<'schedule' | 'fees'>('schedule');
+  const [scheduleView, setScheduleView] = useState<'yearly' | 'monthly'>('yearly');
+
+  // History & Toast
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [historyList, setHistoryList] = useState<HistoryItem[]>([]);
@@ -153,12 +167,25 @@ export const App: React.FC = () => {
     const intPct = totalPay > 0 ? (totalInt / totalPay) * 100 : 0;
     const pPct = totalPay > 0 ? (principal / totalPay) * 100 : 0;
 
+    // +2% Stress test calculation for UAE mortgage compliance
+    const stressRate = (R + 2.0) / 12 / 100;
+    let sEMI = 0;
+    if (principal > 0 && tenureMonths > 0) {
+      if (stressRate === 0) {
+        sEMI = principal / tenureMonths;
+      } else {
+        const sFactor = Math.pow(1 + stressRate, tenureMonths);
+        sEMI = (principal * stressRate * sFactor) / (sFactor - 1);
+      }
+    }
+
     setResultEmi(Math.round(finalEMI));
     setResultTotalInterest(Math.round(totalInt));
     setResultProcessingFee(Math.round(feeAmount));
     setResultTotalPayment(Math.round(totalPay));
     setLoanPercent(parseFloat(pPct.toFixed(2)));
     setInterestPercent(parseFloat(intPct.toFixed(2)));
+    setStressEMI(Math.round(sEMI));
 
     // Save calculation to history
     const newItem: HistoryItem = {
@@ -181,7 +208,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // Reset to initial clean values
+  // Reset to initial clean benchmark values
   const handleReset = () => {
     setLoanAmount('1000000');
     setInterestRate('6.29');
@@ -196,16 +223,17 @@ export const App: React.FC = () => {
     setResultTotalPayment(1426931);
     setLoanPercent(70.08);
     setInterestPercent(29.92);
+    setStressEMI(11284);
   };
 
   // Share calculation summary
   const handleShare = async () => {
-    const text = `EMI Calculation Summary:\n• Monthly EMI: ${currency} ${formatNumber(resultEmi)}\n• Total Interest: ${currency} ${formatNumber(resultTotalInterest)}\n• Processing Fee: ${currency} ${formatNumber(resultProcessingFee)}\n• Total Payment: ${currency} ${formatNumber(resultTotalPayment)}\n(Calculated with UAE EMI Calculator)`;
+    const text = `UAE Mortgage EMI Calculation:\n• Monthly EMI: ${currency} ${formatNumber(resultEmi)}\n• Total Interest: ${currency} ${formatNumber(resultTotalInterest)}\n• Processing Fee: ${currency} ${formatNumber(resultProcessingFee)}\n• Total Payment: ${currency} ${formatNumber(resultTotalPayment)}\n• +2% Stress Test EMI: ${currency} ${formatNumber(stressEMI)}\n(Calculated with UAE Mortgage EMI Calculator)`;
     
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'EMI Calculator Result',
+          title: 'UAE EMI Calculator Result',
           text
         });
         return;
@@ -244,325 +272,739 @@ export const App: React.FC = () => {
     }
   };
 
+  // Build schedules for the amortization table on the dashboard
+  const P = parseFloat(loanAmount) || 0;
+  const R = parseFloat(interestRate) || 0;
+  const tenureYears = periodUnit === 'year' ? (parseFloat(period) || 0) : ((parseFloat(period) || 0) / 12);
+  const totalMonths = Math.max(1, Math.round(tenureYears * 12));
+  const monthlyRate = (R / 12) / 100;
+
+  const monthlySchedule = useMemo(() => {
+    const rows: AmortizationRow[] = [];
+    let balance = P;
+    let accInt = 0;
+
+    for (let m = 1; m <= totalMonths; m++) {
+      const intPart = balance * monthlyRate;
+      let princPart = resultEmi - intPart;
+
+      if (m === totalMonths || princPart > balance) {
+        princPart = balance;
+        balance = 0;
+      } else {
+        balance = Math.max(0, balance - princPart);
+      }
+
+      accInt += intPart;
+
+      rows.push({
+        month: m,
+        year: Math.ceil(m / 12),
+        payment: resultEmi,
+        principal: princPart,
+        interest: intPart,
+        remainingBalance: balance,
+        rateApplied: R
+      });
+    }
+    return rows;
+  }, [P, R, totalMonths, monthlyRate, resultEmi]);
+
+  const yearlySchedule = useMemo(() => {
+    const map = new Map<number, YearlyAmortizationRow>();
+    for (const row of monthlySchedule) {
+      if (!map.has(row.year)) {
+        map.set(row.year, {
+          year: row.year,
+          totalPayment: 0,
+          totalPrincipal: 0,
+          totalInterest: 0,
+          endingBalance: row.remainingBalance,
+          effectiveRate: row.rateApplied
+        });
+      }
+      const yr = map.get(row.year)!;
+      yr.totalPayment += row.payment;
+      yr.totalPrincipal += row.principal;
+      yr.totalInterest += row.interest;
+      yr.endingBalance = row.remainingBalance;
+    }
+    return Array.from(map.values());
+  }, [monthlySchedule]);
+
+  const handleExportCSV = () => {
+    exportAmortizationToCSV(
+      scheduleView === 'monthly' ? monthlySchedule : yearlySchedule,
+      scheduleView,
+      P > 0 ? P * 1.25 : 2000000,
+      P
+    );
+  };
+
+  // Estimated UAE Property Acquisition Fees
+  const estimatedPropertyPrice = P > 0 ? Math.round(P / 0.8) : 0;
+  const dldFee = estimatedPropertyPrice * 0.04;
+  const agencyCommission = estimatedPropertyPrice * 0.02 * 1.05;
+  const bankFee = P > 0 ? Math.max(10000, P * 0.01) * 1.05 : 0;
+  const valuation = P > 0 ? 3150 : 0;
+  const mortgageReg = P > 0 ? (P * 0.0025) + 290 : 0;
+  const trusteeFee = estimatedPropertyPrice >= 500000 ? 4200 : 2100;
+  const totalFees = dldFee + agencyCommission + bankFee + valuation + mortgageReg + trusteeFee;
+
   return (
-    <div className="min-h-screen bg-[#F2F2F7] sm:py-8 flex flex-col items-center justify-start text-slate-800 antialiased selection:bg-blue-100 selection:text-blue-900">
+    <div className="min-h-screen bg-[#F4F6F9] text-slate-800 antialiased font-sans selection:bg-blue-100 selection:text-blue-900 pb-16">
       
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-4 z-50 px-4 py-2 bg-slate-900/90 text-white text-xs font-semibold rounded-full shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-top-2">
-          {toastMessage}
+        <div className="fixed top-5 right-5 z-50 px-4 py-2.5 bg-slate-900/90 text-white text-xs font-semibold rounded-full shadow-xl backdrop-blur-md flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+          <Check className="w-3.5 h-3.5 text-emerald-400 stroke-[3]" />
+          <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Mobile Wrapper Container - exact native iOS mobile frame */}
-      <div className="w-full max-w-[430px] bg-[#F2F2F7] sm:rounded-[44px] sm:shadow-2xl sm:border sm:border-slate-300/60 overflow-hidden flex flex-col min-h-screen sm:min-h-[880px]">
-        
-        {/* iOS Top Navigation Bar - matching Screenshot 1 */}
-        <header className="px-5 pt-4 pb-3 flex items-center justify-between bg-transparent">
-          {/* Back / Reset Icon */}
-          <button
-            onClick={handleReset}
-            className="w-10 h-10 rounded-full flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition-colors"
-            title="Reset"
-          >
-            <ChevronLeft className="w-6 h-6 stroke-[2.2]" />
-          </button>
-
-          {/* Title */}
-          <div className="flex items-center gap-1.5">
-            <h1 className="text-[17px] font-semibold text-slate-900 tracking-tight">EMI Calculator</h1>
+      {/* Top Dashboard Header Bar */}
+      <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          
+          {/* Logo & Dashboard Title */}
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-sm shadow-blue-500/20">
+              AED
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                  UAE Mortgage EMI Calculator
+                </h1>
+                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                  🇦🇪 Central Bank LTV Compliant
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 hidden sm:block">
+                Comprehensive mortgage dashboard with reducing balance &amp; +2% stress test
+              </p>
+            </div>
           </div>
 
-          {/* Right Header Controls: Currency (AED/$) & History */}
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setCurrency(prev => prev === 'AED' ? '$' : 'AED')}
-              className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/80 border border-slate-200 text-blue-600 shadow-2xs hover:bg-white transition-all"
-              title="Toggle Currency"
-            >
-              {currency}
-            </button>
+          {/* Header Controls: Currency, History & Share */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Currency Switcher */}
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200/80">
+              <button
+                type="button"
+                onClick={() => setCurrency('AED')}
+                className={`text-xs font-bold px-2.5 py-1 rounded-md transition-all ${
+                  currency === 'AED'
+                    ? 'bg-white text-blue-600 shadow-2xs'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                AED
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrency('$')}
+                className={`text-xs font-bold px-2.5 py-1 rounded-md transition-all ${
+                  currency === '$'
+                    ? 'bg-white text-blue-600 shadow-2xs'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                $
+              </button>
+            </div>
+
+            {/* History Modal Trigger */}
             <button
               onClick={() => setIsHistoryOpen(true)}
-              className="w-10 h-10 rounded-full flex items-center justify-center text-blue-600 hover:bg-blue-50/80 transition-colors"
-              title="History"
+              className="h-9 px-3 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              title="Calculation History"
             >
-              <History className="w-5 h-5 stroke-[2]" />
-            </button>
-          </div>
-        </header>
-
-        {/* Scrollable Content Body */}
-        <div className="flex-1 px-4 pb-24 space-y-4">
-          
-          {/* Calculator Inputs Card - matching Screenshot 1 */}
-          <div className="bg-white rounded-3xl p-4 shadow-2xs border border-slate-200/60 space-y-3">
-            
-            {/* Row 1: Loan Amount */}
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setTarget('loan')}
-                className="w-6 h-6 rounded-full flex items-center justify-center transition-all focus:outline-hidden"
-              >
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                  target === 'loan' ? 'border-blue-600' : 'border-slate-300'
-                }`}>
-                  {target === 'loan' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
-                </div>
-              </button>
-
-              <label className="text-[15px] font-normal text-slate-600 w-28 shrink-0">
-                Loan Amount
-              </label>
-
-              <div className="flex-1 relative flex items-center">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={formatCommaValue(loanAmount)}
-                  onChange={handleInputChange(setLoanAmount)}
-                  placeholder="0"
-                  className="w-full h-11 pl-3.5 pr-12 bg-[#EEF2F6] text-slate-800 text-[15px] font-medium rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
-                />
-                <span className="absolute right-3.5 text-slate-400 text-[13px] font-semibold pointer-events-none">
-                  {currency}
-                </span>
-              </div>
-            </div>
-
-            {/* Row 2: Interest */}
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setTarget('interest')}
-                className="w-6 h-6 rounded-full flex items-center justify-center transition-all focus:outline-hidden"
-              >
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                  target === 'interest' ? 'border-blue-600' : 'border-slate-300'
-                }`}>
-                  {target === 'interest' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
-                </div>
-              </button>
-
-              <label className="text-[15px] font-normal text-slate-600 w-28 shrink-0">
-                Interest
-              </label>
-
-              <div className="flex-1 relative flex items-center">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={interestRate}
-                  onChange={handleInputChange(setInterestRate)}
-                  placeholder="0"
-                  className="w-full h-11 pl-3.5 pr-8 bg-[#EEF2F6] text-slate-800 text-[15px] font-medium rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
-                />
-                <span className="absolute right-3.5 text-slate-400 text-[14px] font-medium pointer-events-none">
-                  %
-                </span>
-              </div>
-            </div>
-
-            {/* Row 3: Period */}
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setTarget('period')}
-                className="w-6 h-6 rounded-full flex items-center justify-center transition-all focus:outline-hidden"
-              >
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                  target === 'period' ? 'border-blue-600' : 'border-slate-300'
-                }`}>
-                  {target === 'period' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
-                </div>
-              </button>
-
-              <label className="text-[15px] font-normal text-slate-600 w-28 shrink-0">
-                Period
-              </label>
-
-              <div className="flex-1 flex items-center bg-[#EEF2F6] rounded-xl h-11 px-3.5 gap-2">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={period}
-                  onChange={handleInputChange(setPeriod)}
-                  placeholder="0"
-                  className="flex-1 bg-transparent text-slate-800 text-[15px] font-medium outline-hidden text-left"
-                />
-
-                {/* Period Unit Selector (Year / Month) */}
-                <div className="relative shrink-0">
-                  <select
-                    value={periodUnit}
-                    onChange={(e) => setPeriodUnit(e.target.value as 'year' | 'month')}
-                    className="appearance-none bg-transparent pr-5 text-slate-500 text-[13px] font-medium cursor-pointer outline-hidden"
-                  >
-                    <option value="year">Year</option>
-                    <option value="month">Month</option>
-                  </select>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-              </div>
-            </div>
-
-            {/* Row 4: EMI */}
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setTarget('emi')}
-                className="w-6 h-6 rounded-full flex items-center justify-center transition-all focus:outline-hidden"
-              >
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                  target === 'emi' ? 'border-blue-600' : 'border-slate-300'
-                }`}>
-                  {target === 'emi' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
-                </div>
-              </button>
-
-              <label className="text-[15px] font-normal text-slate-600 w-28 shrink-0">
-                EMI
-              </label>
-
-              <div className="flex-1 relative flex items-center">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={target === 'emi' ? (emi ? formatCommaValue(emi) : '') : formatCommaValue(emi)}
-                  onChange={handleInputChange(setEmi)}
-                  placeholder={target === 'emi' ? 'Calculated automatically' : '0'}
-                  className="w-full h-11 pl-3.5 pr-12 bg-[#EEF2F6] text-slate-800 text-[15px] font-medium rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
-                />
-                <span className="absolute right-3.5 text-slate-400 text-[13px] font-semibold pointer-events-none">
-                  {currency}
-                </span>
-              </div>
-            </div>
-
-            {/* Row 5: Processing Fee (No radio button) */}
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 shrink-0" />
-
-              <label className="text-[15px] font-normal text-slate-600 w-28 shrink-0">
-                Processing Fee
-              </label>
-
-              <div className="flex-1 relative flex items-center">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={processingFeePercent}
-                  onChange={handleInputChange(setProcessingFeePercent)}
-                  placeholder="0"
-                  className="w-full h-11 pl-3.5 pr-8 bg-[#EEF2F6] text-slate-800 text-[15px] font-medium rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
-                />
-                <span className="absolute right-3.5 text-slate-400 text-[14px] font-medium pointer-events-none">
-                  %
-                </span>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Action Buttons: Reset & Calculate - matching Screenshot 1 */}
-          <div className="grid grid-cols-2 gap-3 pt-1">
-            <button
-              type="button"
-              onClick={handleReset}
-              className="w-full h-12 rounded-full bg-[#E5E9F0] hover:bg-slate-200 text-slate-600 font-semibold text-[15px] transition-all flex items-center justify-center active:scale-[0.98]"
-            >
-              Reset
+              <History className="w-4 h-4 text-blue-600 stroke-[2]" />
+              <span className="hidden sm:inline">History</span>
             </button>
 
+            {/* Share / Copy Action */}
             <button
-              type="button"
-              onClick={performCalculation}
-              className="w-full h-12 rounded-full bg-[#2563EB] hover:bg-blue-600 text-white font-semibold text-[15px] transition-all shadow-md shadow-blue-500/20 flex items-center justify-center active:scale-[0.98]"
-            >
-              Calculate
-            </button>
-          </div>
-
-          {/* Calculation Results Card - matching Screenshot 2 */}
-          <div className="bg-white rounded-3xl p-5 shadow-2xs border border-slate-200/60 divide-y divide-slate-100">
-            <div className="flex items-center justify-between py-2.5 first:pt-0">
-              <span className="text-[14px] text-slate-500">Monthly EMI</span>
-              <span className="text-[16px] font-semibold text-slate-800 tracking-tight">
-                {currency} {formatNumber(resultEmi)}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between py-2.5">
-              <span className="text-[14px] text-slate-500">Total Interest</span>
-              <span className="text-[16px] font-semibold text-slate-800 tracking-tight">
-                {currency} {formatNumber(resultTotalInterest)}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between py-2.5">
-              <span className="text-[14px] text-slate-500">Processing Fee</span>
-              <span className="text-[16px] font-semibold text-slate-800 tracking-tight">
-                {currency} {formatNumber(resultProcessingFee)}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between py-2.5 last:pb-0">
-              <span className="text-[14px] text-slate-500">Total Payment</span>
-              <span className="text-[16px] font-semibold text-slate-800 tracking-tight">
-                {currency} {formatNumber(resultTotalPayment)}
-              </span>
-            </div>
-          </div>
-
-          {/* Donut Chart Visual Card - matching Screenshot 2 */}
-          <DonutChart
-            loanPercent={loanPercent}
-            interestPercent={interestPercent}
-          />
-
-        </div>
-
-        {/* Bottom Floating/Sticky Action Bar (Share & Details) - matching Screenshot 2 */}
-        <div className="fixed bottom-0 left-0 right-0 sm:static bg-white/80 sm:bg-transparent backdrop-blur-md sm:backdrop-blur-none border-t sm:border-t-0 border-slate-200/60 p-4 z-40 max-w-[430px] mx-auto">
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
               onClick={handleShare}
-              className="h-12 rounded-full bg-[#2563EB] hover:bg-blue-600 text-white font-medium text-[15px] flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all"
+              className="h-9 px-3.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm shadow-blue-500/20 active:scale-95 transition-all"
             >
-              <Share2 className="w-4 h-4 stroke-[2.2]" />
+              <Share2 className="w-3.5 h-3.5 stroke-[2.2]" />
               <span>Share</span>
             </button>
-
-            <button
-              type="button"
-              onClick={() => setIsDetailsOpen(true)}
-              className="h-12 rounded-full bg-[#2563EB] hover:bg-blue-600 text-white font-medium text-[15px] flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all"
-            >
-              <Menu className="w-4 h-4 stroke-[2.2]" />
-              <span>Details</span>
-            </button>
           </div>
+
+        </div>
+      </header>
+
+      {/* Main Dashboard Container */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
+
+        {/* 1. Top KPI Summary Row (4 Metric Cards) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          
+          {/* Monthly EMI Card */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/70 shadow-2xs relative overflow-hidden flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-semibold uppercase tracking-wider">Monthly EMI</span>
+              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                <CreditCard className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-xs font-bold text-slate-400">{currency}</span>
+                <span className="text-xl sm:text-2xl font-extrabold text-blue-600 tracking-tight font-mono-numbers">
+                  {formatNumber(resultEmi)}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">Standard reducing balance</p>
+            </div>
+          </div>
+
+          {/* Total Interest Card */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/70 shadow-2xs flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-semibold uppercase tracking-wider">Total Interest</span>
+              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <Percent className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-xs font-bold text-slate-400">{currency}</span>
+                <span className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight font-mono-numbers">
+                  {formatNumber(resultTotalInterest)}
+                </span>
+              </div>
+              <p className="text-[11px] text-emerald-600 font-semibold mt-1">
+                {interestPercent}% of total payment
+              </p>
+            </div>
+          </div>
+
+          {/* Total Payment Card */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/70 shadow-2xs flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-500 mb-2">
+              <span className="text-xs font-semibold uppercase tracking-wider">Total Payment</span>
+              <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+                <Calendar className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-xs font-bold text-slate-400">{currency}</span>
+                <span className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight font-mono-numbers">
+                  {formatNumber(resultTotalPayment)}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">Principal + Interest</p>
+            </div>
+          </div>
+
+          {/* +2% UAE Stress Rate EMI Card */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-emerald-200/80 bg-gradient-to-br from-white to-emerald-50/30 shadow-2xs flex flex-col justify-between">
+            <div className="flex items-center justify-between text-emerald-700 mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider">+2% Stress EMI</span>
+              <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                <ShieldCheck className="w-4 h-4 stroke-[2.2]" />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-xs font-bold text-emerald-600">{currency}</span>
+                <span className="text-xl sm:text-2xl font-extrabold text-emerald-700 tracking-tight font-mono-numbers">
+                  {formatNumber(stressEMI)}
+                </span>
+              </div>
+              <p className="text-[11px] text-emerald-600 font-medium mt-1">
+                UAE Central Bank Buffer ({(R + 2).toFixed(2)}%)
+              </p>
+            </div>
+          </div>
+
         </div>
 
-      </div>
+        {/* 2. Main Dashboard Split (Left: Input Console | Right: Donut Chart & Overview) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          {/* Left Column: Loan Parameters Calculator Console */}
+          <div className="lg:col-span-5 space-y-4">
+            <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/70 shadow-2xs space-y-4">
+              
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">Loan Parameters</h2>
+                  <p className="text-xs text-slate-500">Tap any circular radio to solve for that field</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="text-xs text-slate-500 hover:text-blue-600 flex items-center gap-1 font-semibold transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset</span>
+                </button>
+              </div>
 
-      {/* Slide-over / Modal for Details (Schedule, UAE stress test & fees) */}
-      <DetailsModal
-        isOpen={isDetailsOpen}
-        onClose={() => setIsDetailsOpen(false)}
-        currency={currency}
-        loanAmount={parseFloat(loanAmount) || 0}
-        interestRate={parseFloat(interestRate) || 0}
-        tenureYears={periodUnit === 'year' ? (parseFloat(period) || 0) : ((parseFloat(period) || 0) / 12)}
-        monthlyEMI={resultEmi}
-        totalInterest={resultTotalInterest}
-        totalPayment={resultTotalPayment}
-        processingFeeAmount={resultProcessingFee}
-      />
+              {/* Row 1: Loan Amount */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setTarget('loan')}
+                  className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all focus:outline-hidden"
+                  title="Calculate Loan Amount from EMI"
+                >
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                    target === 'loan' ? 'border-blue-600' : 'border-slate-300'
+                  }`}>
+                    {target === 'loan' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                  </div>
+                </button>
 
-      {/* History Modal */}
+                <label className="text-sm font-semibold text-slate-700 w-28 shrink-0">
+                  Loan Amount
+                </label>
+
+                <div className="flex-1 relative flex items-center">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={formatCommaValue(loanAmount)}
+                    onChange={handleInputChange(setLoanAmount)}
+                    placeholder="0"
+                    className="w-full h-11 pl-3.5 pr-14 bg-[#EEF2F6] text-slate-900 text-sm font-bold rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
+                  />
+                  <span className="absolute right-3.5 text-xs font-bold text-slate-500 pointer-events-none">
+                    {currency}
+                  </span>
+                </div>
+              </div>
+
+              {/* Row 2: Interest */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setTarget('interest')}
+                  className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all focus:outline-hidden"
+                  title="Calculate Interest Rate from EMI"
+                >
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                    target === 'interest' ? 'border-blue-600' : 'border-slate-300'
+                  }`}>
+                    {target === 'interest' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                  </div>
+                </button>
+
+                <label className="text-sm font-semibold text-slate-700 w-28 shrink-0">
+                  Interest
+                </label>
+
+                <div className="flex-1 relative flex items-center">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={interestRate}
+                    onChange={handleInputChange(setInterestRate)}
+                    placeholder="0"
+                    className="w-full h-11 pl-3.5 pr-8 bg-[#EEF2F6] text-slate-900 text-sm font-bold rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
+                  />
+                  <span className="absolute right-3.5 text-xs font-bold text-slate-500 pointer-events-none">
+                    %
+                  </span>
+                </div>
+              </div>
+
+              {/* Row 3: Period with Clean Segmented Year / Month Switch */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setTarget('period')}
+                  className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all focus:outline-hidden"
+                  title="Calculate Period from EMI"
+                >
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                    target === 'period' ? 'border-blue-600' : 'border-slate-300'
+                  }`}>
+                    {target === 'period' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                  </div>
+                </button>
+
+                <label className="text-sm font-semibold text-slate-700 w-28 shrink-0">
+                  Period
+                </label>
+
+                <div className="flex-1 flex items-center bg-[#EEF2F6] rounded-xl h-11 px-3 gap-2">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={period}
+                    onChange={handleInputChange(setPeriod)}
+                    placeholder="0"
+                    className="flex-1 bg-transparent text-slate-900 text-sm font-bold outline-hidden text-left"
+                  />
+
+                  {/* Clean Segmented Button Toggle - Fixed Year/Month control */}
+                  <div className="flex bg-slate-200/80 p-0.5 rounded-lg shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setPeriodUnit('year')}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                        periodUnit === 'year'
+                          ? 'bg-white text-blue-600 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Years
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPeriodUnit('month')}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                        periodUnit === 'month'
+                          ? 'bg-white text-blue-600 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Months
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 4: Monthly EMI */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setTarget('emi')}
+                  className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all focus:outline-hidden"
+                  title="Calculate EMI from Loan, Interest & Period"
+                >
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                    target === 'emi' ? 'border-blue-600' : 'border-slate-300'
+                  }`}>
+                    {target === 'emi' && <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                  </div>
+                </button>
+
+                <label className="text-sm font-semibold text-slate-700 w-28 shrink-0">
+                  Monthly EMI
+                </label>
+
+                <div className="flex-1 relative flex items-center">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={target === 'emi' ? (emi ? formatCommaValue(emi) : '') : formatCommaValue(emi)}
+                    onChange={handleInputChange(setEmi)}
+                    placeholder={target === 'emi' ? 'Auto-calculated' : '0'}
+                    className={`w-full h-11 pl-3.5 pr-14 bg-[#EEF2F6] text-slate-900 text-sm font-bold rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left ${
+                      target === 'emi' ? 'text-blue-600' : ''
+                    }`}
+                  />
+                  <span className="absolute right-3.5 text-xs font-bold text-slate-500 pointer-events-none">
+                    {currency}
+                  </span>
+                </div>
+              </div>
+
+              {/* Row 5: Processing Fee */}
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 shrink-0" />
+
+                <label className="text-sm font-semibold text-slate-700 w-28 shrink-0">
+                  Processing Fee
+                </label>
+
+                <div className="flex-1 relative flex items-center">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={processingFeePercent}
+                    onChange={handleInputChange(setProcessingFeePercent)}
+                    placeholder="0"
+                    className="w-full h-11 pl-3.5 pr-8 bg-[#EEF2F6] text-slate-900 text-sm font-bold rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
+                  />
+                  <span className="absolute right-3.5 text-xs font-bold text-slate-500 pointer-events-none">
+                    %
+                  </span>
+                </div>
+              </div>
+
+              {/* Primary Action Buttons */}
+              <div className="pt-2 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="w-full h-12 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-all flex items-center justify-center active:scale-[0.98]"
+                >
+                  Reset
+                </button>
+
+                <button
+                  type="button"
+                  onClick={performCalculation}
+                  className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition-all shadow-md shadow-blue-500/20 flex items-center justify-center active:scale-[0.98]"
+                >
+                  Calculate EMI
+                </button>
+              </div>
+
+            </div>
+
+            {/* UAE Central Bank Quick Guidelines Callout Card */}
+            <div className="bg-white rounded-3xl p-5 border border-slate-200/70 shadow-2xs space-y-2.5">
+              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                <Building2 className="w-4 h-4 text-blue-600" />
+                <span>UAE Central Bank Mortgage Rules</span>
+              </div>
+              <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside">
+                <li><strong className="text-slate-800">LTV Limits:</strong> 85% for UAE nationals, 80% for expatriates (properties ≤ 5M AED).</li>
+                <li><strong className="text-slate-800">Max Tenure:</strong> 25 years for expats (capped at retirement age 65/70).</li>
+                <li><strong className="text-slate-800">DBR Ratio:</strong> Total monthly debt obligations must not exceed 50% of monthly income.</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Right Column: Visual Donut Breakdown & Quick Summary */}
+          <div className="lg:col-span-7 space-y-6">
+            
+            {/* Donut Chart Card */}
+            <div className="bg-white rounded-3xl p-6 border border-slate-200/70 shadow-2xs">
+              <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900">Principal vs. Interest Breakdown</h2>
+                  <p className="text-xs text-slate-500">Proportional split of your total mortgage payments</p>
+                </div>
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
+                  Total: {currency} {formatNumber(resultTotalPayment)}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                {/* Visual Chart */}
+                <div className="flex justify-center">
+                  <DonutChart
+                    loanPercent={loanPercent}
+                    interestPercent={interestPercent}
+                  />
+                </div>
+
+                {/* Key Financial Insights */}
+                <div className="space-y-3.5">
+                  <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/60">
+                    <div className="flex items-center justify-between text-xs font-bold text-amber-800">
+                      <span>Loan Principal</span>
+                      <span>{loanPercent}%</span>
+                    </div>
+                    <p className="text-lg font-extrabold text-slate-900 mt-0.5">
+                      {currency} {formatNumber(P)}
+                    </p>
+                    <p className="text-[11px] text-amber-700/80 mt-0.5">Direct debt repayment</p>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-200/60">
+                    <div className="flex items-center justify-between text-xs font-bold text-emerald-800">
+                      <span>Total Bank Interest</span>
+                      <span>{interestPercent}%</span>
+                    </div>
+                    <p className="text-lg font-extrabold text-slate-900 mt-0.5">
+                      {currency} {formatNumber(resultTotalInterest)}
+                    </p>
+                    <p className="text-[11px] text-emerald-700/80 mt-0.5">Cost of borrowing over {period} {periodUnit}s</p>
+                  </div>
+
+                  {resultProcessingFee > 0 && (
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/60">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-600">
+                        <span>Processing Fee</span>
+                        <span>{processingFeePercent}%</span>
+                      </div>
+                      <p className="text-base font-bold text-slate-900 mt-0.5">
+                        {currency} {formatNumber(resultProcessingFee)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* 3. Detailed Dashboard Section (Amortization Schedule & UAE Cost Breakdown) */}
+        <div className="bg-white rounded-3xl border border-slate-200/70 shadow-2xs overflow-hidden">
+          
+          {/* Section Navigation Tabs & Export Control */}
+          <div className="px-6 py-4 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-4 bg-slate-50/60">
+            
+            {/* Tabs */}
+            <div className="flex items-center bg-slate-200/80 p-1 rounded-xl text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setDetailsTab('schedule')}
+                className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                  detailsTab === 'schedule'
+                    ? 'bg-white text-blue-600 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <TableProperties className="w-3.5 h-3.5" />
+                <span>Amortization Schedule</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDetailsTab('fees')}
+                className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                  detailsTab === 'fees'
+                    ? 'bg-white text-blue-600 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Receipt className="w-3.5 h-3.5" />
+                <span>UAE Upfront Fees &amp; Costs</span>
+              </button>
+            </div>
+
+            {/* View toggles & Export (only active on Schedule tab) */}
+            {detailsTab === 'schedule' && (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center bg-slate-200/80 p-1 rounded-xl text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setScheduleView('yearly')}
+                    className={`px-2.5 py-1 rounded-lg transition-all ${
+                      scheduleView === 'yearly'
+                        ? 'bg-white text-blue-600 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Yearly ({yearlySchedule.length} yrs)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScheduleView('monthly')}
+                    className={`px-2.5 py-1 rounded-lg transition-all ${
+                      scheduleView === 'monthly'
+                        ? 'bg-white text-blue-600 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Monthly ({monthlySchedule.length} mos)
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleExportCSV}
+                  className="h-8 px-3 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all"
+                  title="Export Amortization Table to CSV"
+                >
+                  <Download className="w-3.5 h-3.5 text-blue-600 stroke-[2.2]" />
+                  <span>Export CSV</span>
+                </button>
+              </div>
+            )}
+
+          </div>
+
+          {/* Tab 1: Amortization Table */}
+          {detailsTab === 'schedule' && (
+            <div className="overflow-x-auto max-h-[440px]">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-100/80 sticky top-0 z-10 text-slate-700 font-bold border-b border-slate-200">
+                  <tr>
+                    <th className="py-3 px-4">{scheduleView === 'yearly' ? 'Year' : 'Month'}</th>
+                    <th className="py-3 px-4">Payment</th>
+                    <th className="py-3 px-4">Principal</th>
+                    <th className="py-3 px-4">Interest</th>
+                    <th className="py-3 px-4 text-right">Remaining Balance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-mono-numbers text-slate-700">
+                  {scheduleView === 'yearly' ? (
+                    yearlySchedule.map((row) => (
+                      <tr key={row.year} className="hover:bg-blue-50/40 transition-colors">
+                        <td className="py-2.5 px-4 font-bold text-slate-900">Year {row.year}</td>
+                        <td className="py-2.5 px-4 font-semibold text-slate-800">{currency} {formatNumber(Math.round(row.totalPayment))}</td>
+                        <td className="py-2.5 px-4 text-blue-600 font-semibold">{currency} {formatNumber(Math.round(row.totalPrincipal))}</td>
+                        <td className="py-2.5 px-4 text-emerald-600 font-semibold">{currency} {formatNumber(Math.round(row.totalInterest))}</td>
+                        <td className="py-2.5 px-4 text-right font-bold text-slate-900">{currency} {formatNumber(Math.round(row.endingBalance))}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    monthlySchedule.map((row) => (
+                      <tr key={row.month} className="hover:bg-blue-50/40 transition-colors">
+                        <td className="py-2 px-4 font-bold text-slate-900">M{row.month} (Yr {row.year})</td>
+                        <td className="py-2 px-4 font-semibold text-slate-800">{currency} {formatNumber(Math.round(row.payment))}</td>
+                        <td className="py-2 px-4 text-blue-600 font-semibold">{currency} {formatNumber(Math.round(row.principal))}</td>
+                        <td className="py-2 px-4 text-emerald-600 font-semibold">{currency} {formatNumber(Math.round(row.interest))}</td>
+                        <td className="py-2 px-4 text-right font-bold text-slate-900">{currency} {formatNumber(Math.round(row.remainingBalance))}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Tab 2: UAE Upfront Acquisition Fees Breakdown */}
+          {detailsTab === 'fees' && (
+            <div className="p-6 space-y-6">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Estimated UAE Property Acquisition Costs</h3>
+                <p className="text-xs text-slate-500">Based on standard Dubai Land Department (DLD) and bank regulations</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70">
+                  <div className="text-xs font-semibold text-slate-500">DLD Transfer Fee (4%)</div>
+                  <div className="text-base font-extrabold text-slate-900 mt-1">{currency} {formatNumber(Math.round(dldFee))}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">4% of property price + AED 580 admin</div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70">
+                  <div className="text-xs font-semibold text-slate-500">Agency Commission (2% + VAT)</div>
+                  <div className="text-base font-extrabold text-slate-900 mt-1">{currency} {formatNumber(Math.round(agencyCommission))}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">Standard 2% brokerage + 5% VAT</div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70">
+                  <div className="text-xs font-semibold text-slate-500">Mortgage Registration (0.25%)</div>
+                  <div className="text-base font-extrabold text-slate-900 mt-1">{currency} {formatNumber(Math.round(mortgageReg))}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">0.25% of loan amount + AED 290</div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70">
+                  <div className="text-xs font-semibold text-slate-500">Bank Arrangement Fee (1%)</div>
+                  <div className="text-base font-extrabold text-slate-900 mt-1">{currency} {formatNumber(Math.round(bankFee))}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">~1% of loan amount (min AED 10,000)</div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70">
+                  <div className="text-xs font-semibold text-slate-500">Property Valuation Fee</div>
+                  <div className="text-base font-extrabold text-slate-900 mt-1">{currency} {formatNumber(valuation)}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">Standard bank inspection appraisal</div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200/70">
+                  <div className="text-xs font-bold text-blue-800">Total Upfront Fees Needed</div>
+                  <div className="text-lg font-black text-blue-600 mt-1">{currency} {formatNumber(Math.round(totalFees))}</div>
+                  <div className="text-[11px] text-blue-700/80 mt-0.5">Excludes property down payment</div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+        </div>
+
+      </main>
+
+      {/* History Modal (Accessible from header) */}
       <HistoryModal
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
