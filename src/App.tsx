@@ -14,12 +14,15 @@ import {
   FileSpreadsheet,
   TableProperties,
   Receipt,
-  Calculator
+  Calculator,
+  ChevronDown,
+  Landmark
 } from 'lucide-react';
 import { DonutChart } from './components/DonutChart';
 import { HistoryModal, HistoryItem } from './components/HistoryModal';
 import { formatNumber, exportAmortizationToCSV } from './utils/calculations';
 import { AmortizationRow, YearlyAmortizationRow } from './types/mortgage';
+import { FLATTENED_BANK_RATES, UAE_BANK_RATES, DropdownRateOption } from './data/uaeBankRates';
 
 type SolveTarget = 'loan' | 'interest' | 'period' | 'emi';
 
@@ -27,6 +30,7 @@ export const App: React.FC = () => {
   // Input string states - default to benchmark values
   const [loanAmount, setLoanAmount] = useState<string>('1000000');
   const [interestRate, setInterestRate] = useState<string>('6.29');
+  const [selectedBankKey, setSelectedBankKey] = useState<string>('');
   const [period, setPeriod] = useState<string>('12');
   const [periodUnit, setPeriodUnit] = useState<'year' | 'month'>('year');
   const [emi, setEmi] = useState<string>('9909.24');
@@ -49,9 +53,19 @@ export const App: React.FC = () => {
   // UAE Stress test (+2% rate buffer)
   const [stressEMI, setStressEMI] = useState<number>(11284);
 
-  // Dashboard detail view states
-  const [detailsTab, setDetailsTab] = useState<'schedule' | 'fees'>('schedule');
+  // Dashboard detail view states: schedule, fees, or live bank rates
+  const [detailsTab, setDetailsTab] = useState<'schedule' | 'fees' | 'rates'>('schedule');
   const [scheduleView, setScheduleView] = useState<'yearly' | 'monthly'>('yearly');
+
+  // Selected bank details (if chosen from dropdown)
+  const selectedBankInfo = useMemo<DropdownRateOption | null>(() => {
+    if (!selectedBankKey) return null;
+    for (const group of FLATTENED_BANK_RATES) {
+      const found = group.options.find((opt) => opt.key === selectedBankKey);
+      if (found) return found;
+    }
+    return null;
+  }, [selectedBankKey]);
 
   // History & Toast
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
@@ -92,9 +106,9 @@ export const App: React.FC = () => {
   };
 
   // Trigger calculation based on active radio target
-  const performCalculation = () => {
+  const performCalculation = (overrideRate?: number | unknown) => {
     const P = parseFloat(loanAmount) || 0;
-    const R = parseFloat(interestRate) || 0;
+    const R = typeof overrideRate === 'number' ? overrideRate : (parseFloat(interestRate) || 0);
     const rawPeriod = parseFloat(period) || 0;
     const N = periodUnit === 'year' ? rawPeriod * 12 : rawPeriod;
     const E = parseFloat(emi) || 0;
@@ -209,10 +223,27 @@ export const App: React.FC = () => {
     }
   };
 
+  // Handle Bank benchmark rate selection from dropdown
+  const handleBankRateSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const key = e.target.value;
+    setSelectedBankKey(key);
+    if (!key) return;
+
+    for (const group of FLATTENED_BANK_RATES) {
+      const found = group.options.find((opt) => opt.key === key);
+      if (found) {
+        setInterestRate(found.rate.toString());
+        performCalculation(found.rate);
+        break;
+      }
+    }
+  };
+
   // Reset to initial clean benchmark values
   const handleReset = () => {
     setLoanAmount('1000000');
     setInterestRate('6.29');
+    setSelectedBankKey('');
     setPeriod('12');
     setPeriodUnit('year');
     setEmi('9909.24');
@@ -510,37 +541,87 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Row 2: Interest */}
-            <div className="flex items-center gap-2 sm:gap-3">
-              <button
-                type="button"
-                onClick={() => setTarget('interest')}
-                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center shrink-0 transition-all focus:outline-hidden"
-                title="Calculate Interest Rate from EMI"
-              >
-                <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                  target === 'interest' ? 'border-blue-600' : 'border-slate-300'
-                }`}>
-                  {target === 'interest' && <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-blue-600" />}
+            {/* Row 2: Interest with UAE Bank Benchmark Rates Dropdown */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={() => setTarget('interest')}
+                  className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center shrink-0 transition-all focus:outline-hidden"
+                  title="Calculate Interest Rate from EMI"
+                >
+                  <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                    target === 'interest' ? 'border-blue-600' : 'border-slate-300'
+                  }`}>
+                    {target === 'interest' && <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-blue-600" />}
+                  </div>
+                </button>
+
+                <label className="text-xs sm:text-sm font-semibold text-slate-700 w-24 sm:w-32 shrink-0">
+                  Interest
+                </label>
+
+                <div className="flex-1 relative flex items-center min-w-0">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={interestRate}
+                    onChange={(e) => {
+                      setSelectedBankKey('');
+                      handleInputChange(setInterestRate)(e);
+                    }}
+                    placeholder="0"
+                    className="w-full h-10 sm:h-11 pl-3 pr-8 bg-[#EEF2F6] text-slate-900 text-sm font-bold rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
+                  />
+                  <span className="absolute right-3 sm:right-3.5 text-xs font-bold text-slate-500 pointer-events-none">
+                    %
+                  </span>
                 </div>
-              </button>
+              </div>
 
-              <label className="text-xs sm:text-sm font-semibold text-slate-700 w-24 sm:w-32 shrink-0">
-                Interest
-              </label>
+              {/* UAE Bank Benchmark Rates Dropdown */}
+              <div className="flex items-start gap-2 sm:gap-3 pl-7 sm:pl-9">
+                <div className="w-24 sm:w-32 hidden sm:block shrink-0" />
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <div className="relative">
+                    <select
+                      value={selectedBankKey}
+                      onChange={handleBankRateSelect}
+                      className="w-full h-9 pl-7 pr-7 bg-blue-50/70 hover:bg-blue-50 text-blue-900 text-xs font-bold rounded-xl border border-blue-200/80 outline-hidden focus:ring-2 focus:ring-blue-500/20 appearance-none cursor-pointer transition-colors truncate"
+                    >
+                      <option value="">🏦 Select UAE Bank Rate (DIB, ENBD, EIB, CBD, RAK, Ajman, Arab...)</option>
+                      {FLATTENED_BANK_RATES.map((group) => (
+                        <optgroup key={group.group} label={group.group} className="text-slate-900 font-bold bg-white">
+                          {group.options.map((opt) => (
+                            <option key={opt.key} value={opt.key} className="text-slate-700 font-medium">
+                              {opt.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                    <Building2 className="w-3.5 h-3.5 text-blue-600 absolute left-2 top-2.5 pointer-events-none" />
+                    <ChevronDown className="w-3.5 h-3.5 text-blue-600 absolute right-2.5 top-2.5 pointer-events-none" />
+                  </div>
 
-              <div className="flex-1 relative flex items-center min-w-0">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={interestRate}
-                  onChange={handleInputChange(setInterestRate)}
-                  placeholder="0"
-                  className="w-full h-10 sm:h-11 pl-3 pr-8 bg-[#EEF2F6] text-slate-900 text-sm font-bold rounded-xl outline-hidden focus:ring-2 focus:ring-blue-500/20 transition-all text-left"
-                />
-                <span className="absolute right-3 sm:right-3.5 text-xs font-bold text-slate-500 pointer-events-none">
-                  %
-                </span>
+                  {/* Selected Bank Details / Requirements & Stress Test Notes */}
+                  {selectedBankInfo && (
+                    <div className="p-2 sm:p-2.5 rounded-xl bg-blue-50/60 border border-blue-200/60 text-[11px] text-blue-950 space-y-1 animate-in fade-in">
+                      <div className="flex items-center justify-between font-bold text-blue-900">
+                        <span>{selectedBankInfo.label}</span>
+                        <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-bold">
+                          {selectedBankInfo.category}
+                        </span>
+                      </div>
+                      <p className="text-slate-600 text-[10px] leading-relaxed">
+                        <strong className="text-slate-800">Requirements:</strong> {selectedBankInfo.requirement}
+                      </p>
+                      <p className="text-slate-600 text-[10px] leading-relaxed">
+                        <strong className="text-emerald-700">Stress Policy:</strong> {selectedBankInfo.stressPolicy}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -915,6 +996,20 @@ export const App: React.FC = () => {
                 <span className="sm:hidden">Upfront Fees</span>
                 <span className="hidden sm:inline">UAE Upfront Fees &amp; Costs</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setDetailsTab('rates')}
+                className={`flex-1 sm:flex-initial px-3 sm:px-3.5 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  detailsTab === 'rates'
+                    ? 'bg-white text-blue-600 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Landmark className="w-3.5 h-3.5" />
+                <span className="sm:hidden">Bank Rates</span>
+                <span className="hidden sm:inline">UAE Bank Rates</span>
+              </button>
             </div>
 
             {/* View toggles & Export (only active on Schedule tab) */}
@@ -1045,6 +1140,101 @@ export const App: React.FC = () => {
                   <div className="text-[11px] text-blue-700/80 mt-0.5">Excludes property down payment</div>
                 </div>
 
+              </div>
+            </div>
+          )}
+
+          {/* Tab 3: UAE Bank Mortgage Rates Comparison */}
+          {detailsTab === 'rates' && (
+            <div className="p-4 sm:p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">UAE Bank Mortgage Benchmark Rates</h3>
+                  <p className="text-xs text-slate-500">Live competitive rates across leading UAE commercial and Islamic banks</p>
+                </div>
+                <span className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full font-bold self-start sm:self-auto">
+                  Central Bank Stress Buffer: 2%–4%
+                </span>
+              </div>
+
+              {/* Responsive Bank Table */}
+              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-100/90 sticky top-0 z-10 text-slate-700 font-bold border-b border-slate-200">
+                    <tr>
+                      <th className="py-3 px-3 sm:px-4">Bank</th>
+                      <th className="py-3 px-3 sm:px-4">STL (Salary Transfer)</th>
+                      <th className="py-3 px-3 sm:px-4">NSTL (No Salary Transfer)</th>
+                      <th className="py-3 px-3 sm:px-4">Self-Employed (SE)</th>
+                      <th className="py-3 px-3 sm:px-4 min-w-[200px]">Stress Policy &amp; Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {UAE_BANK_RATES.map((b) => (
+                      <tr key={b.code} className="hover:bg-blue-50/40 transition-colors">
+                        <td className="py-3 px-3 sm:px-4 font-bold text-slate-900 whitespace-nowrap">
+                          <div className="text-sm text-slate-900">{b.name}</div>
+                        </td>
+                        <td className="py-3 px-3 sm:px-4 whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedBankKey(`${b.code}_STL`);
+                              setInterestRate(b.stl.rate.toString());
+                              performCalculation(b.stl.rate);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white font-bold transition-all text-[11px] shadow-2xs"
+                            title="Click to apply this rate in calculator"
+                          >
+                            <span>{b.stl.display}</span>
+                            <span className="text-[9px] opacity-75">Apply</span>
+                          </button>
+                          <div className="text-[10px] text-slate-400 mt-0.5">{b.stl.details}</div>
+                        </td>
+                        <td className="py-3 px-3 sm:px-4 whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedBankKey(`${b.code}_NSTL`);
+                              setInterestRate(b.nstl.rate.toString());
+                              performCalculation(b.nstl.rate);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-blue-600 hover:text-white font-bold transition-all text-[11px] shadow-2xs"
+                            title="Click to apply this rate in calculator"
+                          >
+                            <span>{b.nstl.display}</span>
+                            <span className="text-[9px] opacity-75">Apply</span>
+                          </button>
+                          <div className="text-[10px] text-slate-400 mt-0.5">{b.nstl.details}</div>
+                        </td>
+                        <td className="py-3 px-3 sm:px-4 whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedBankKey(`${b.code}_SE`);
+                              setInterestRate(b.se.rate.toString());
+                              performCalculation(b.se.rate);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-600 hover:text-white font-bold transition-all text-[11px] shadow-2xs"
+                            title="Click to apply this rate in calculator"
+                          >
+                            <span>{b.se.display}</span>
+                            <span className="text-[9px] opacity-75">Apply</span>
+                          </button>
+                          <div className="text-[10px] text-slate-400 mt-0.5 max-w-[180px] truncate" title={b.se.details}>
+                            {b.se.details}
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 sm:px-4 text-[11px] text-slate-600 min-w-[200px]">
+                          {b.stressPolicy}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
