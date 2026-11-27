@@ -22,7 +22,7 @@ import { DonutChart } from './components/DonutChart';
 import { HistoryModal, HistoryItem } from './components/HistoryModal';
 import { formatNumber, exportAmortizationToCSV } from './utils/calculations';
 import { AmortizationRow, YearlyAmortizationRow } from './types/mortgage';
-import { FLATTENED_BANK_RATES, UAE_BANK_RATES, DropdownRateOption } from './data/uaeBankRates';
+import { FLATTENED_LOANZONE_RATES, LOANZONE_BANK_DATA, DropdownRateOption } from './data/uaeBankRates';
 
 type SolveTarget = 'loan' | 'interest' | 'period' | 'emi';
 
@@ -60,7 +60,7 @@ export const App: React.FC = () => {
   // Selected bank details (if chosen from dropdown)
   const selectedBankInfo = useMemo<DropdownRateOption | null>(() => {
     if (!selectedBankKey) return null;
-    for (const group of FLATTENED_BANK_RATES) {
+    for (const group of FLATTENED_LOANZONE_RATES) {
       const found = group.options.find((opt) => opt.key === selectedBankKey);
       if (found) return found;
     }
@@ -229,7 +229,7 @@ export const App: React.FC = () => {
     setSelectedBankKey(key);
     if (!key) return;
 
-    for (const group of FLATTENED_BANK_RATES) {
+    for (const group of FLATTENED_LOANZONE_RATES) {
       const found = group.options.find((opt) => opt.key === key);
       if (found) {
         setInterestRate(found.rate.toString());
@@ -406,15 +406,18 @@ export const App: React.FC = () => {
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h1 className="text-sm sm:text-lg font-bold text-slate-900 tracking-tight truncate">
-                  <span className="sm:hidden">EMI Calculator</span>
-                  <span className="hidden sm:inline">UAE Mortgage EMI Calculator</span>
+                  <span className="sm:hidden">LoanZone EMI</span>
+                  <span className="hidden sm:inline">LoanZone Mortgage EMI Calculator</span>
                 </h1>
+                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/60 shrink-0">
+                  ⚡ LoanZone
+                </span>
                 <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 shrink-0">
                   🇦🇪 Central Bank Compliant
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 hidden sm:block">
-                Comprehensive mortgage dashboard with reducing balance &amp; +2% stress test
+                Comprehensive mortgage dashboard with LoanZone live bank rates &amp; +2% stress test
               </p>
             </div>
           </div>
@@ -579,7 +582,7 @@ export const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* UAE Bank Benchmark Rates Dropdown */}
+              {/* UAE Bank Benchmark Rates Dropdown - Powered by LoanZone */}
               <div className="flex items-start gap-2 sm:gap-3 pl-7 sm:pl-9">
                 <div className="w-24 sm:w-32 hidden sm:block shrink-0" />
                 <div className="flex-1 min-w-0 space-y-1.5">
@@ -590,8 +593,8 @@ export const App: React.FC = () => {
                       style={{ appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
                       className="w-full h-9 pl-7 pr-7 bg-blue-50/70 hover:bg-blue-50 text-blue-900 text-xs font-bold rounded-xl border border-blue-200/80 outline-hidden focus:ring-2 focus:ring-blue-500/20 cursor-pointer transition-colors truncate"
                     >
-                      <option value="">🏦 Select UAE Bank Rate (DIB, ENBD, EIB, CBD, RAK, Ajman, Arab...)</option>
-                      {FLATTENED_BANK_RATES.map((group) => (
+                      <option value="">🏦 Select UAE Bank Rate — LoanZone</option>
+                      {FLATTENED_LOANZONE_RATES.map((group) => (
                         <optgroup key={group.group} label={group.group} className="text-slate-900 font-bold bg-white">
                           {group.options.map((opt) => (
                             <option key={opt.key} value={opt.key} className="text-slate-700 font-medium">
@@ -605,21 +608,25 @@ export const App: React.FC = () => {
                     <ChevronDown className="w-3.5 h-3.5 text-blue-600 absolute right-2.5 top-2.5 pointer-events-none" />
                   </div>
 
-                  {/* Selected Bank Details / Requirements & Stress Test Notes */}
+                  {/* Selected Bank Details / Requirements & Variable Follow-on */}
                   {selectedBankInfo && (
                     <div className="p-2 sm:p-2.5 rounded-xl bg-blue-50/60 border border-blue-200/60 text-[11px] text-blue-950 space-y-1 animate-in fade-in">
                       <div className="flex items-center justify-between font-bold text-blue-900">
-                        <span>{selectedBankInfo.label}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-black tracking-wide uppercase">
+                            LoanZone
+                          </span>
+                          <span>{selectedBankInfo.label}</span>
+                        </div>
                         <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-bold">
                           {selectedBankInfo.category}
                         </span>
                       </div>
-                      <p className="text-slate-600 text-[10px] leading-relaxed">
-                        <strong className="text-slate-800">Requirements:</strong> {selectedBankInfo.requirement}
-                      </p>
-                      <p className="text-slate-600 text-[10px] leading-relaxed">
-                        <strong className="text-emerald-700">Stress Policy:</strong> {selectedBankInfo.stressPolicy}
-                      </p>
+                      {selectedBankInfo.variableFollowOn && (
+                        <p className="text-slate-600 text-[10px] leading-relaxed">
+                          <strong className="text-slate-800">Variable Follow-on:</strong> {selectedBankInfo.variableFollowOn}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1145,16 +1152,23 @@ export const App: React.FC = () => {
             </div>
           )}
 
-          {/* Tab 3: UAE Bank Mortgage Rates Comparison */}
+          {/* Tab 3: UAE Bank Mortgage Rates Comparison - Powered by LoanZone */}
           {detailsTab === 'rates' && (
             <div className="p-4 sm:p-6 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">UAE Bank Mortgage Benchmark Rates</h3>
-                  <p className="text-xs text-slate-500">Live competitive rates across leading UAE commercial and Islamic banks</p>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-900">LoanZone UAE Mortgage Benchmark Rates</h3>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/60">
+                      ⚡ 14 UAE Banks
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Click any fixed rate pill below to automatically load it into your calculator. Includes follow-on variable spreads.
+                  </p>
                 </div>
-                <span className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full font-bold self-start sm:self-auto">
-                  Central Bank Stress Buffer: 2%–4%
+                <span className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full font-bold self-start sm:self-auto shrink-0">
+                  Central Bank Buffer: +2% to +4%
                 </span>
               </div>
 
@@ -1164,73 +1178,99 @@ export const App: React.FC = () => {
                   <thead className="bg-slate-100/90 sticky top-0 z-10 text-slate-700 font-bold border-b border-slate-200">
                     <tr>
                       <th className="py-3 px-3 sm:px-4">Bank</th>
-                      <th className="py-3 px-3 sm:px-4">STL (Salary Transfer)</th>
-                      <th className="py-3 px-3 sm:px-4">NSTL (No Salary Transfer)</th>
-                      <th className="py-3 px-3 sm:px-4">Self-Employed (SE)</th>
-                      <th className="py-3 px-3 sm:px-4 min-w-[200px]">Stress Policy &amp; Notes</th>
+                      <th className="py-3 px-3 sm:px-4">Salaried (STL Fixed)</th>
+                      <th className="py-3 px-3 sm:px-4">Salaried (Non-STL Fixed)</th>
+                      <th className="py-3 px-3 sm:px-4">Self-Employed (SE Fixed)</th>
+                      <th className="py-3 px-3 sm:px-4 min-w-[220px]">Variable Follow-on &amp; Policy</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {UAE_BANK_RATES.map((b) => (
-                      <tr key={b.code} className="hover:bg-blue-50/40 transition-colors">
-                        <td className="py-3 px-3 sm:px-4 font-bold text-slate-900 whitespace-nowrap">
-                          <div className="text-sm text-slate-900">{b.name}</div>
+                    {LOANZONE_BANK_DATA.map((b) => (
+                      <tr key={b.bankCode} className="hover:bg-blue-50/40 transition-colors">
+                        <td className="py-3 px-3 sm:px-4 font-bold text-slate-900 whitespace-nowrap align-top">
+                          <div className="text-sm text-slate-900">{b.bankName}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">{b.bankCode}</div>
                         </td>
-                        <td className="py-3 px-3 sm:px-4 whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedBankKey(`${b.code}_STL`);
-                              setInterestRate(b.stl.rate.toString());
-                              performCalculation(b.stl.rate);
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white font-bold transition-all text-[11px] shadow-2xs"
-                            title="Click to apply this rate in calculator"
-                          >
-                            <span>{b.stl.display}</span>
-                            <span className="text-[9px] opacity-75">Apply</span>
-                          </button>
-                          <div className="text-[10px] text-slate-400 mt-0.5">{b.stl.details}</div>
-                        </td>
-                        <td className="py-3 px-3 sm:px-4 whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedBankKey(`${b.code}_NSTL`);
-                              setInterestRate(b.nstl.rate.toString());
-                              performCalculation(b.nstl.rate);
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-blue-600 hover:text-white font-bold transition-all text-[11px] shadow-2xs"
-                            title="Click to apply this rate in calculator"
-                          >
-                            <span>{b.nstl.display}</span>
-                            <span className="text-[9px] opacity-75">Apply</span>
-                          </button>
-                          <div className="text-[10px] text-slate-400 mt-0.5">{b.nstl.details}</div>
-                        </td>
-                        <td className="py-3 px-3 sm:px-4 whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedBankKey(`${b.code}_SE`);
-                              setInterestRate(b.se.rate.toString());
-                              performCalculation(b.se.rate);
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-600 hover:text-white font-bold transition-all text-[11px] shadow-2xs"
-                            title="Click to apply this rate in calculator"
-                          >
-                            <span>{b.se.display}</span>
-                            <span className="text-[9px] opacity-75">Apply</span>
-                          </button>
-                          <div className="text-[10px] text-slate-400 mt-0.5 max-w-[180px] truncate" title={b.se.details}>
-                            {b.se.details}
+                        <td className="py-3 px-3 sm:px-4 align-top">
+                          <div className="flex flex-wrap gap-1.5">
+                            {b.stlFixedOptions.map((opt, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedBankKey(`${b.bankCode}_STL_${idx}`);
+                                  setInterestRate(opt.rate.toString());
+                                  performCalculation(opt.rate);
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white font-bold transition-all text-[11px] shadow-2xs border border-blue-200/60"
+                                title={`Apply ${opt.tenure} at ${opt.display}`}
+                              >
+                                <span>{opt.display}</span>
+                                <span className="text-[9px] opacity-75">({opt.tenure})</span>
+                              </button>
+                            ))}
                           </div>
+                          {b.stlVariable && (
+                            <div className="text-[10px] text-slate-500 mt-1 font-mono">
+                              Var: {b.stlVariable}
+                            </div>
+                          )}
                         </td>
-                        <td className="py-3 px-3 sm:px-4 text-[11px] text-slate-600 min-w-[200px]">
-                          {b.stressPolicy}
+                        <td className="py-3 px-3 sm:px-4 align-top">
+                          <div className="flex flex-wrap gap-1.5">
+                            {b.nonStlFixedOptions.map((opt, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedBankKey(`${b.bankCode}_NSTL_${idx}`);
+                                  setInterestRate(opt.rate.toString());
+                                  performCalculation(opt.rate);
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-blue-600 hover:text-white font-bold transition-all text-[11px] shadow-2xs border border-slate-200"
+                                title={`Apply ${opt.tenure} at ${opt.display}`}
+                              >
+                                <span>{opt.display}</span>
+                                <span className="text-[9px] opacity-75">({opt.tenure})</span>
+                              </button>
+                            ))}
+                          </div>
+                          {b.nonStlVariable && (
+                            <div className="text-[10px] text-slate-500 mt-1 font-mono">
+                              Var: {b.nonStlVariable}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 sm:px-4 align-top">
+                          <div className="flex flex-wrap gap-1.5">
+                            {b.selfEmployedFixedOptions.map((opt, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedBankKey(`${b.bankCode}_SE_${idx}`);
+                                  setInterestRate(opt.rate.toString());
+                                  performCalculation(opt.rate);
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-600 hover:text-white font-bold transition-all text-[11px] shadow-2xs border border-amber-200/60"
+                                title={`Apply ${opt.tenure} at ${opt.display}`}
+                              >
+                                <span>{opt.display}</span>
+                                <span className="text-[9px] opacity-75">({opt.tenure})</span>
+                              </button>
+                            ))}
+                          </div>
+                          {b.selfEmployedFollowOn && (
+                            <div className="text-[10px] text-amber-700/80 mt-1 font-mono">
+                              Var: {b.selfEmployedFollowOn}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 sm:px-4 text-[11px] text-slate-600 align-top min-w-[220px]">
+                          {b.notes || 'Subject to bank approval & credit check.'}
                         </td>
                       </tr>
                     ))}
