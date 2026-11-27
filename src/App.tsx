@@ -587,7 +587,8 @@ export const App: React.FC = () => {
                     <select
                       value={selectedBankKey}
                       onChange={handleBankRateSelect}
-                      className="w-full h-9 pl-7 pr-7 bg-blue-50/70 hover:bg-blue-50 text-blue-900 text-xs font-bold rounded-xl border border-blue-200/80 outline-hidden focus:ring-2 focus:ring-blue-500/20 appearance-none cursor-pointer transition-colors truncate"
+                      style={{ appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
+                      className="w-full h-9 pl-7 pr-7 bg-blue-50/70 hover:bg-blue-50 text-blue-900 text-xs font-bold rounded-xl border border-blue-200/80 outline-hidden focus:ring-2 focus:ring-blue-500/20 cursor-pointer transition-colors truncate"
                     >
                       <option value="">🏦 Select UAE Bank Rate (DIB, ENBD, EIB, CBD, RAK, Ajman, Arab...)</option>
                       {FLATTENED_BANK_RATES.map((group) => (
